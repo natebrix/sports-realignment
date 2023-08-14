@@ -1,5 +1,5 @@
 from math import radians, cos, sin, asin, sqrt
-import nfl_data_py as nfl
+#import nfl_data_py as nfl
 import pandas as pd
 import gurobipy as gp
 
@@ -11,13 +11,14 @@ import gurobipy as gp
 #   show the divisions nicely with helmets
 #   show the map with paths
 
-tom = pd.read_csv('tom.csv')
+#tom = pd.read_csv('data/tom.csv')
 
 def get_data():
-    logos = nfl.import_team_desc()
-    df = pd.read_csv("data/teams.csv")
+    #logos = nfl.import_team_desc()
+    df = pd.read_csv("data/nfl-2013.csv")
     df['team'] = df.index
-    return df.merge(logos, on='team_abbr')
+    #return df.merge(logos, on='team_abbr')
+    return df
 
 df = get_data()
 
@@ -58,8 +59,8 @@ distances = make_distances(df)
 # Define the number of teams and divisions
 num_divisions = 8
 teams_per_division = 4
-confs = {{'NFC_WEST', 'NFC_CENTRAL', 'NFC_SOUTH', 'NFC_EAST'}, {'AFC_WEST', 'AFC_CENTRAL', 'AFC_SOUTH', 'AFC_EAST'}} # todo file
-ds = {'NFC_WEST', 'NFC_CENTRAL', 'NFC_SOUTH', 'NFC_EAST', 'AFC_WEST', 'AFC_CENTRAL', 'AFC_SOUTH', 'AFC_EAST'} # todo file
+confs = [['NFC_WEST', 'NFC_CENTRAL', 'NFC_SOUTH', 'NFC_EAST'], ['AFC_WEST', 'AFC_CENTRAL', 'AFC_SOUTH', 'AFC_EAST']] # todo file
+ds = ['NFC_WEST', 'NFC_CENTRAL', 'NFC_SOUTH', 'NFC_EAST', 'AFC_WEST', 'AFC_CENTRAL', 'AFC_SOUTH', 'AFC_EAST'] # todo file
 
 def score_lists(l):
     return sum([sum([distances[i][j] for i in d for j in d]) for d in l])
@@ -90,19 +91,19 @@ def base_model_quad(df):
         m.addConstr(gp.quicksum(x[a,d] for d in ds) == 1)
 
     # max swaps
-    max_swaps = pd.read_csv('data/max_swaps.csv', header=None)
+    max_swaps = pd.read_csv('opt-data/max_swaps.csv', header=None)
     fixed_teams = num_teams - max_swaps.iloc[0,0]
     if fixed_teams > 0:
         m.addConstr(gp.quicksum(x[a, df.loc[i, 'division']] for a in abbrs) >= fixed_teams)
 
     # for everything in fixed.csv, assign x_id = 1
-    fix_teams = pd.read_csv('data/fix_teams.csv')
+    fix_teams = pd.read_csv('opt-data/fix_teams.csv')
     for idx, row in fix_teams.iterrows():
         a = row['team_abbr']
         d = row['division']
         m.addConstr(x[a, d] == 1)
 
-    forbid_teams = pd.read_csv('data/forbid_teams.csv')
+    forbid_teams = pd.read_csv('opt-data/forbid_teams.csv')
     for idx, row in forbid_teams.iterrows():
         i = row['team_abbr1']
         j = row['team_abbr2']
