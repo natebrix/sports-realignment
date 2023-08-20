@@ -13,6 +13,7 @@ import gurobipy as gp
 
 #tom = pd.read_csv('data/tom.csv')
 
+# todo rename
 def get_data(teams="data/nfl-2013.csv"):
     #logos = nfl.import_team_desc()
     df = pd.read_csv(teams)
@@ -59,10 +60,11 @@ teams_per_division = 4
 confs = [['NFC_WEST', 'NFC_CENTRAL', 'NFC_SOUTH', 'NFC_EAST'], ['AFC_WEST', 'AFC_CENTRAL', 'AFC_SOUTH', 'AFC_EAST']] # todo file
 ds = ['NFC_WEST', 'NFC_CENTRAL', 'NFC_SOUTH', 'NFC_EAST', 'AFC_WEST', 'AFC_CENTRAL', 'AFC_SOUTH', 'AFC_EAST'] # todo file
 
-def score(df, s, team='team_abbr', division='division'):
-    distances = make_distances(df)
-    r = {row['team_abbr']:row['team'] for i, row in df.iterrows()}
-    return sum([sum([distances[r[i]][r[j]] for i in ts[team] for j in ts[team]]) for (d, ts) in s.groupby(division)])
+
+def score(df_loc, df_div, team='team_abbr', division='division'):
+    distances = make_distances(df_loc)
+    r = {row['team_abbr']:row['team'] for i, row in df_loc.iterrows()}
+    return sum([sum([distances[r[i]][r[j]] for i in ts[team] for j in ts[team]]) for (d, ts) in df_div.groupby(division)]) / 2
 
 # todo pass in ds
 def base_model_quad(df):
