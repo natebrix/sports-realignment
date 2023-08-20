@@ -13,15 +13,15 @@ import gurobipy as gp
 
 #tom = pd.read_csv('data/tom.csv')
 
-# todo rename
-def get_data(teams="data/nfl-2013.csv"):
+def get_locations(teams):
     #logos = nfl.import_team_desc()
     df = pd.read_csv(teams)
     df['team'] = df.index
     #return df.merge(logos, on='team_abbr')
     return df
 
-df = get_data()
+loc_2002 = get_locations("data/nfl-2002.csv")
+loc_2023 = get_locations("data/nfl-2013.csv")
 
 # stackoverflow
 def haversine(lat1, lon1, lat2, lon2):
@@ -37,8 +37,6 @@ def haversine(lat1, lon1, lat2, lon2):
       return R * c
 
 
-# Compute the distances between teams using the haversine formula
-num_teams = df.shape[0]
 def make_distances(df):
     distances = []
     for i in range(num_teams):
@@ -68,6 +66,7 @@ def score(df_loc, df_div, team='team_abbr', division='division'):
 
 # todo pass in ds
 def base_model_quad(df):
+    num_teams = df.shape[0]
     distances = make_distances(df)
 
     m = gp.Model()
@@ -155,7 +154,7 @@ def base_model_quad(df):
             m.addConstr(x[i, d] + x[j, d] <= 1)
 
     m.write('model.mps')
-    m.params.NonConvex = 1
+    m.params.NonConvex = 2
     return m, x
 
 def in_division_x(x, i, d):
@@ -169,7 +168,7 @@ def make_solve_result(a):
     r = pd.DataFrame(a, columns=['team_abbr', 'division'])
     return r
 
-def solve():
+def solve(df):
     m, x = base_model_quad(df)
     print(m)
     m.optimize()
