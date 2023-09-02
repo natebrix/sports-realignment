@@ -1,15 +1,16 @@
 from math import radians, cos, sin, asin, sqrt
-#import nfl_data_py as nfl
 import pandas as pd
 import gurobipy as gp
+#import nfl_data_py as nfl
 
-# schedule aware based on NFL rules
+# x schedule aware based on NFL rules
 # competitive balance
 # 
 
 # results rendering
 #   show the divisions nicely with helmets
 #   show the map with paths
+
 
 #tom = pd.read_csv('data/tom.csv')
 
@@ -36,136 +37,108 @@ def haversine(lat1, lon1, lat2, lon2):
       c = 2 * asin(sqrt(a))
       return R * c
 
+def haversine_row(df, i, j):
+    lat1, lon1 = df.iloc[i]['team_lat'], df.iloc[i]['team_lng']
+    lat2, lon2 = df.iloc[j]['team_lat'], df.iloc[j]['team_lng']
+    return haversine(lat1, lon1, lat2, lon2)
 
 def make_distances(df):
-    distances = []
-    for i in range(num_teams):
-        row = []
-        for j in range(num_teams):
-            if i == j:
-                distance = 0
-            else:
-                lat1, lon1 = df.iloc[i]['team_lat'], df.iloc[i]['team_lng']
-                lat2, lon2 = df.iloc[j]['team_lat'], df.iloc[j]['team_lng']
-                distance = haversine(lat1, lon1, lat2, lon2)
-            row.append(distance)
-        distances.append(row)
-    return distances
+    rows = range(df.shape[0])
+    return [[haversine_row(df, i, j) for j in rows] for i in rows]
 
 # Define the number of teams and divisions
 num_divisions = 8
 teams_per_division = 4
-confs = [['NFC_WEST', 'NFC_CENTRAL', 'NFC_SOUTH', 'NFC_EAST'], ['AFC_WEST', 'AFC_CENTRAL', 'AFC_SOUTH', 'AFC_EAST']] # todo file
+confs = {'NFC': ['WEST', 'CENTRAL', 'SOUTH', 'EAST'], 'AFC': ['WEST', 'CENTRAL', 'SOUTH', 'EAST']}
 ds = ['NFC_WEST', 'NFC_CENTRAL', 'NFC_SOUTH', 'NFC_EAST', 'AFC_WEST', 'AFC_CENTRAL', 'AFC_SOUTH', 'AFC_EAST'] # todo file
 
 
-def score(df_loc, df_div, team='team_abbr', division='division'):
+# todo: conf division better
+# todo awkward
+def score(loc, df_div, team='team_abbr', division='division'):
+    df_loc = loc if 'shape' in dir(loc) else pd.read_csv(loc)
     distances = make_distances(df_loc)
     r = {row['team_abbr']:row['team'] for i, row in df_loc.iterrows()}
     return sum([sum([distances[r[i]][r[j]] for i in ts[team] for j in ts[team]]) for (d, ts) in df_div.groupby(division)]) / 2
 
-# todo pass in ds
+
 def base_model_quad(df):
+    teams = [row['team_abbr'] for i, row in df.iterrows()] 
     num_teams = df.shape[0]
     distances = make_distances(df)
 
     m = gp.Model()
+    x = {(t, c, d): m.addVar(vtype=gp.GRB.BINARY, name=f"x_{t}_{c}_{d}") for c in confs for d in confs[c] for t in teams}
+    y = {(t, c): m.addVar(vtype=gp.GRB.BINARY, name=f"x_{t}_{c}") for c in confs for t in teams}
 
-    abbrs = [row['team_abbr'] for i, row in df.iterrows()]
-    # todo: think about adding conference
-    x = {}
-    for a in abbrs:
-        for d in ds:
-            x[a, d] = m.addVar(vtype=gp.GRB.BINARY, name=f"x_{a}_{d}")
-
-    # z = {}
-    # for i in abbrs:
-    #     for j in abbrs:
-    #         for d in ds:
-    #             z[i, j, d] = m.addVar(vtype=gp.GRB.BINARY, name=f"z_{i}_{j}_{d}")
-
-    #y = {}
-    #for a in abbrs:
-    #    for c in range(len(confs)):
-    #        y[a, c] = m.addVar(vtype=gp.GRB.BINARY, name=f"y_{a}_{c}")
-    
-    # TODO THIS IS NONCONVEX
-    # need to linearize
-    # z = 𝑥⋅𝑦
-    # z ≤ 𝑥⋅𝑈
-    # z ≤ 𝑦
-    # z ≥ 𝑦−𝑈⋅(1−𝑥)
-    # z ≥ 𝑦−1+𝑥
-
-    # for i in abbrs:
-    #     for j in abbrs:
-    #         for d in ds:
-    #             z[i, j, d] = m.addVar(vtype=gp.GRB.BINARY, name=f"z_{i}_{j}_{d}")
-    #             m.addConstr(z[i, j, d] <= x[i, d])
-    #             m.addConstr(z[i, j, d] <= x[j, d])
-    #             m.addConstr(z[i, j, d] >= x[i, d] + x[j, d] - 1)
-
-
-    # x[ai, d] * x[aj, d] --> z[ai, aj, d]
-    m.setObjective(0.5 * gp.quicksum(distances[i][j] * x[ai, d] * x[aj, d] for i, ai in enumerate(abbrs) for j, aj in enumerate(abbrs) for d in ds), gp.GRB.MINIMIZE)
-    # m.setObjective(gp.quicksum(distances[i][j] * z[ai, aj, d] for i, ai in enumerate(abbrs) for j, aj in enumerate(abbrs) for d in ds), gp.GRB.MINIMIZE)
-    # alternative: distance to each divisional foe + 1/4 distance same conference + 1/8 other conference
-    # let y[i, c]
-    # d[i, j] * y[i, c] * y[j, c]
-
-    #
-    #
-    # on the other hand if I have x[i, c, d]
-    #  then sum_ijcd (d_ij * x[i, c, d] * x[j, c, d]) + sum_ijc 1/4 * d_ij * sum_d x_icd * sum_d x_jcd
-    #
-    # or with normal x_id
-    #   3/4 sum_ijd d_ij x_id x_jd + 1/4 * sum_ij d_ij (sum_d1 x_id1) (sum_d1 x_jd1) + 1/8
-    #for c in range(len(confs)):
-    #    m.addConstr(gp.quicksum(y[a, c] for a in abbrs) == len(abbrs) / len(confs))
-
-    #for a in abbrs:
-    #    m.addConstr(gp.quicksum(y[a, c] for c in range(len(confs))) == 1)
+    sum_division = gp.quicksum(distances[i][j] * x[ai, c, d] * x[aj, c, d] for i, ai in enumerate(teams) for j, aj in enumerate(teams) for c in confs for d in confs[c])
+    sum_same_conf = gp.quicksum(distances[i][j] * y[ai, c] * y[aj, c] for i, ai in enumerate(teams) for j, aj in enumerate(teams) for c in confs)
+    sum_diff_conf = gp.quicksum((distances[i][j] * y[ai, c] * (1 - y[aj, c])) + (distances[i][j] * (1 - y[ai, c]) * y[aj, c])for i, ai in enumerate(teams) for j, aj in enumerate(teams) for c in confs)
+    #m.setObjective(0.5 * (sum_division + 0.5 * sum_same_conf + 0.25 * sum_diff_conf), gp.GRB.MINIMIZE)
+    m.setObjective(0.5 * (sum_division), gp.GRB.MINIMIZE)
 
     # structural constraints
-    for d in ds:
-        m.addConstr(gp.quicksum(x[a,d] for a in abbrs) == teams_per_division)
+    for c in confs:
+        for d in confs[c]:
+            m.addConstr(gp.quicksum(x[a, c, d] for a in teams) == teams_per_division)
 
-    for a in abbrs:
-        m.addConstr(gp.quicksum(x[a,d] for d in ds) == 1)
+    for t in teams:
+        m.addConstr(gp.quicksum(x[t, c, d] for c in confs for d in confs[c]) == 1)
+
+    for t in teams:
+        for c in confs:
+            m.addConstr(gp.quicksum(x[t, c, d] for d in confs[c]) == y[t, c])
 
     # max swaps
-    max_swaps = pd.read_csv('opt-data/max_swaps.csv', header=None)
-    fixed_teams = num_teams - max_swaps.iloc[0,0]
+    df_ms = pd.read_csv('opt-data/max_swaps.csv', header=None)
+    max_swaps = df_ms.iloc[0, 0]
+    fixed_teams = num_teams - max_swaps
     if fixed_teams > 0:
-        m.addConstr(gp.quicksum(x[a, df.loc[i, 'division']] for a in abbrs) >= fixed_teams)
+        print(f'MAX SWAPS {max_swaps}')
+        # todo brittle
+        m.addConstr(gp.quicksum(x[t, df.loc[i, 'conf'], df.loc[i, 'division']] for i, t in enumerate(teams)) >= fixed_teams) 
 
-    # for everything in fixed.csv, assign x_id = 1
+    # for everything in fixed.csv, assign x_icd = 1
     fix_teams = pd.read_csv('opt-data/fix_teams.csv')
-    for idx, row in fix_teams.iterrows():
-        a = row['team_abbr']
-        d = row['division']
-        m.addConstr(x[a, d] == 1)
+    for idx, f in fix_teams.iterrows():
+        t = f['team_abbr']
+        c = f['conf']
+        d = f['division']
+        print(f'{t} --> {c} {d}')
+        m.addConstr(x[t, c, d] == 1)
+
+    # for everything in fix_conf.csv, sum_d x_icd = 1 for fixed c
+    fix_conf = pd.read_csv('opt-data/fix_conf.csv')
+    for idx, f in fix_conf.iterrows():
+        t = f['team_abbr']
+        c = f['conf']
+        print(f'{t} --> {c}')
+        #m.addConstr(gp.quicksum(x[t, c, d] for d in confs[c]) == 1)
+        m.addConstr(y[t, c] == 1)
 
     forbid_teams = pd.read_csv('opt-data/forbid_teams.csv')
     for idx, row in forbid_teams.iterrows():
         i = row['team_abbr1']
         j = row['team_abbr2']
-        for d in ds:
-            m.addConstr(x[i, d] + x[j, d] <= 1)
+        print(f'{i} != {j}')
+        for c in confs:
+            for d in confs[c]:
+                m.addConstr(x[i, c, d] + x[j, c, d] <= 1)
 
     m.write('model.mps')
     m.params.NonConvex = 2
     return m, x
 
-def in_division_x(x, i, d):
-    return x[i, d].x > 0.99
+
+def in_division_x(x):
+    return x.x > 0.99
 
 def get_assignment(df, x, in_division=in_division_x):
     abbrs = [row['team_abbr'] for i, row in df.iterrows()]
-    return [(a, d) for d in ds for a in abbrs if in_division(x, a, d)]
+    return [(a, c, d) for c in confs for d in confs[c] for a in abbrs if in_division(x[a, c, d])]
 
 def make_solve_result(a):
-    r = pd.DataFrame(a, columns=['team_abbr', 'division'])
+    r = pd.DataFrame(a, columns=['team_abbr', 'conf', 'division'])
     return r
 
 def solve(df):
@@ -174,3 +147,19 @@ def solve(df):
     m.optimize()
     a = get_assignment(df, x)
     return make_solve_result(a)
+
+# There is an assignment problem to assign the division labels.
+# This only applies if we are not fixing anything.
+# let a_tcd be the inital assignment.
+# want to max a_icd x_icd
+# I want the permutation of c, d that gives me the best solution
+### TODO WRONG
+def assign(df, m, x):
+    ma = gp.Model()
+    z = {(t, c, d): m.addVar(vtype=gp.GRB.BINARY, name=f"z_{t}_{c}_{d}") for (t, c, d) in x}
+    m.setObjective(gp.quicksum(x[t, c, d].x * z[t, c, d] for (t, c, d) in x), gp.GRB.MAXIMIZE)
+    teams = list(set([t for (t, c, d) in x]))
+    for c in confs:
+        for d in confs[c]:
+            m.addConstr(gp.quicksum(x[t, c, d] for t in teams) == teams_per_division)
+
