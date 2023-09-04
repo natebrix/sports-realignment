@@ -3,6 +3,8 @@ import pandas as pd
 import gurobipy as gp
 #import nfl_data_py as nfl
 
+# MLB here: https://en.wikipedia.org/wiki/Major_League_Baseball
+
 # x schedule aware based on NFL rules
 # competitive balance
 # 
@@ -21,8 +23,8 @@ def get_locations(teams):
     #return df.merge(logos, on='team_abbr')
     return df
 
-loc_2002 = get_locations("data/nfl-2002.csv")
-loc_2023 = get_locations("data/nfl-2013.csv")
+nfl_2002 = get_locations("data/nfl-2002.csv")
+nfl_2023 = get_locations("data/nfl-2013.csv")
 
 # stackoverflow
 def haversine(lat1, lon1, lat2, lon2):
@@ -137,16 +139,16 @@ def get_assignment(df, x, in_division=in_division_x):
     abbrs = [row['team_abbr'] for i, row in df.iterrows()]
     return [(a, c, d) for c in confs for d in confs[c] for a in abbrs if in_division(x[a, c, d])]
 
-def make_solve_result(a):
+def make_solve_result(a, df, keep=['team_lat', 'team_lng']):
     r = pd.DataFrame(a, columns=['team_abbr', 'conf', 'division'])
-    return r
+    return pd.merge(r, df[['team_abbr'] + keep], on='team_abbr')
 
 def solve(df):
     m, x = base_model_quad(df)
     print(m)
     m.optimize()
     a = get_assignment(df, x)
-    return make_solve_result(a)
+    return make_solve_result(a, df)
 
 # There is an assignment problem to assign the division labels.
 # This only applies if we are not fixing anything.
