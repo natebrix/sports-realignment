@@ -7,6 +7,10 @@ import pandas as pd
 import os
 import urllib.request
 
+# results rendering
+#   show the divisions nicely with helmets
+#   show the map with paths
+
 # todo - gen these on first run
 # https://github.com/tbryan2/NFL-Python-Team-Logo-Viz/blob/main/Team-Logo-Visualizations.ipynb
 def save_logos(logos):
