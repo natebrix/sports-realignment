@@ -35,14 +35,27 @@ def haversine(lat1, lon1, lat2, lon2):
       c = 2 * asin(sqrt(a))
       return R * c
 
-def haversine_row(df, i, j):
-    lat1, lon1 = df.iloc[i]['team_lat'], df.iloc[i]['team_lng']
-    lat2, lon2 = df.iloc[j]['team_lat'], df.iloc[j]['team_lng']
-    return haversine(lat1, lon1, lat2, lon2)
+
+def haversine_row(r):
+    return (r['team_abbr_x'], r['team_abbr_y'], haversine(r['team_lat_x'], r['team_lng_x'], r['team_lat_y'], r['team_lng_y']))
+
+
+def distance_row(r, distances):  
+    return distances[r['team_abbr_x'], r['team_abbr_y']]         
+
 
 def make_distances(df):
-    rows = range(df.shape[0])
-    return [[haversine_row(df, i, j) for j in rows] for i in rows]
+    ll = ['team_abbr', 'team_lat', 'team_lng']
+    return {(t[0], t[1]) : t[2] for t in df[ll].merge(df[ll], how='cross').apply(lambda r: haversine_row(r), axis=1).tolist()}
+
+
+def score_division(div, distances):
+    return sum(div.merge(div, how='cross').apply(lambda r: distance_row(r, distances), axis=1).tolist())
+
+
+def score(teams, distances, team='team_abbr', division='division'):
+    return sum([score_division(div, distances) for (name, div) in teams.groupby(['conf', 'division'])]) / 2
+
 
 # todo this should be read from a file
 # todo goes in a class or structure of some sort
@@ -52,15 +65,6 @@ num_divisions = 8
 teams_per_division = 4
 confs = {'NFC': ['WEST', 'CENTRAL', 'SOUTH', 'EAST'], 'AFC': ['WEST', 'CENTRAL', 'SOUTH', 'EAST']}
 nfl = {'num_divisions' : 8, 'teams_per_division' : 4, 'confs' : confs }
-
-
-# todo: conf division better
-# todo awkward
-def score(loc, df_div, team='team_abbr', division='division'):
-    df_loc = loc if 'shape' in dir(loc) else pd.read_csv(loc)
-    distances = make_distances(df_loc)
-    r = {row['team_abbr']:row['team'] for i, row in df_loc.iterrows()}
-    return sum([sum([distances[r[i]][r[j]] for i in ts[team] for j in ts[team]]) for (d, ts) in df_div.groupby(division)]) / 2
 
 
 def max_swaps_constraints(league, df, m, x, num_teams):
