@@ -36,16 +36,18 @@ def order_by_division_paths(df, keys):
     ds = [division_path(g[1]) for g in df.groupby(by=keys)]
     return pd.concat(ds)
 
-def plot_divisions(df, keys=['conf', 'division']):
+def plot_divisions(df, keys=['conf', 'division'], scope='usa'):
     data = order_by_division_paths(df, keys)
     data['label'] = data[keys].agg(' '.join, axis=1)
-    fig = px.line_geo(data, lon="team_lng", lat="team_lat", scope='usa', color='label', 
+    fig = px.line_geo(data, lon="team_lng", lat="team_lat", scope=scope, color='label', 
                       text = data['team_abbr'])
     fig.update_traces(textposition='top center')
     fig.layout = go.Layout(
         geo = dict(
-            scope = 'usa',
-            projection = dict(type = 'albers usa'),
+            scope = scope,
+            center = { "lat": 44, "lon": -106.33844897531482 }, # nhl
+            projection = {"type": "albers", "scale": 2.2}, # nhl
+            #projection = dict(type = 'albers usa'),
             showland = True,
             landcolor = 'rgb(250, 250, 250)',
             subunitcolor = 'rgb(217, 217, 217)',
@@ -54,15 +56,14 @@ def plot_divisions(df, keys=['conf', 'division']):
             subunitwidth = 0.5
         ),
         title = dict(
-            text = 'NFL Team Stadium Locations',
+            text = 'Team Stadium Locations',
             font = dict(size = 28)
         ),
         margin = dict(r = 0, l = 0, t = 100, b = 0)
     )
     fig.show()
 
-def plot_teams(df):
-
+def plot_teams(df, scope='usa'):
     # Create a scatterplot of the team locations
     data = go.Scattergeo(
         lat = df['team_lat'],
@@ -81,7 +82,7 @@ def plot_teams(df):
     # Set the layout of the plot
     layout = go.Layout(
         geo = dict(
-            scope = 'usa',
+            scope = scope,
             projection = dict(type = 'albers usa'),
             showland = True,
             landcolor = 'rgb(250, 250, 250)',
@@ -91,7 +92,7 @@ def plot_teams(df):
             subunitwidth = 0.5
         ),
         title = dict(
-            text = 'NFL Team Stadium Locations',
+            text = 'Team Stadium Locations',
             font = dict(size = 28)
         ),
         margin = dict(r = 0, l = 0, t = 100, b = 0)

@@ -18,8 +18,20 @@ def get_locations(teams):
     #return df.merge(logos, on='team_abbr')
     return df
 
+# todo this should be read from a file
+# todo goes in a class or structure of some sort
+# todo this is nfl only.
+# Define the number of teams and divisions
+nfl_confs = {'NFC': ['WEST', 'CENTRAL', 'SOUTH', 'EAST'], 'AFC': ['WEST', 'CENTRAL', 'SOUTH', 'EAST']}
+nfl = {'num_divisions' : 8, 'teams_per_division' : 4, 'confs' : nfl_confs }
 nfl_data = { 2002 : get_locations("data/nfl-2002.csv"),
              2023 : get_locations("data/nfl-2023.csv")
+           }
+
+nhl_confs = {'EAST': ['ATLANTIC', 'METRO'], 'WEST': ['CENTRAL', 'PACIFIC']}
+nhl = {'num_divisions' : 4, 'teams_per_division' : 8, 'confs' : nhl_confs }
+nhl_data = { 
+             2023 : get_locations("data/nhl-2023.csv")
            }
 
 # stackoverflow
@@ -55,16 +67,6 @@ def score_division(div, distances):
 
 def score(teams, distances, team='team_abbr', division='division'):
     return sum([score_division(div, distances) for (name, div) in teams.groupby(['conf', 'division'])]) / 2
-
-
-# todo this should be read from a file
-# todo goes in a class or structure of some sort
-# todo this is nfl only.
-# Define the number of teams and divisions
-num_divisions = 8
-teams_per_division = 4
-confs = {'NFC': ['WEST', 'CENTRAL', 'SOUTH', 'EAST'], 'AFC': ['WEST', 'CENTRAL', 'SOUTH', 'EAST']}
-nfl = {'num_divisions' : 8, 'teams_per_division' : 4, 'confs' : confs }
 
 
 def max_swaps_constraints(league, df, m, x, num_teams):
@@ -124,16 +126,16 @@ def base_model_quad(league, df):
     y = {(t, c): m.addVar(vtype=gp.GRB.BINARY, name=f"x_{t}_{c}") for c in confs for t in teams}
 
     # todo wrap me in a function to pick the objective.
-    sum_division = gp.quicksum(distances[i][j] * x[ai, c, d] * x[aj, c, d] for i, ai in enumerate(teams) for j, aj in enumerate(teams) for c in confs for d in confs[c])
-    sum_same_conf = gp.quicksum(distances[i][j] * y[ai, c] * y[aj, c] for i, ai in enumerate(teams) for j, aj in enumerate(teams) for c in confs)
-    sum_diff_conf = gp.quicksum((distances[i][j] * y[ai, c] * (1 - y[aj, c])) + (distances[i][j] * (1 - y[ai, c]) * y[aj, c])for i, ai in enumerate(teams) for j, aj in enumerate(teams) for c in confs)
+    sum_division = gp.quicksum(distances[ai, aj] * x[ai, c, d] * x[aj, c, d] for i, ai in enumerate(teams) for j, aj in enumerate(teams) for c in confs for d in confs[c])
+    sum_same_conf = gp.quicksum(distances[ai, aj] * y[ai, c] * y[aj, c] for i, ai in enumerate(teams) for j, aj in enumerate(teams) for c in confs)
+    sum_diff_conf = gp.quicksum((distances[ai, aj] * y[ai, c] * (1 - y[aj, c])) + (distances[ai, aj] * (1 - y[ai, c]) * y[aj, c])for i, ai in enumerate(teams) for j, aj in enumerate(teams) for c in confs)
     #m.setObjective(0.5 * (sum_division + 0.5 * sum_same_conf + 0.25 * sum_diff_conf), gp.GRB.MINIMIZE)
-    m.setObjective(0.5 * (sum_division), gp.GRB.MINIMIZE)
+    m.setObjective(0.5 * sum_division, gp.GRB.MINIMIZE)
 
     # structural constraints
     for c in confs:
         for d in confs[c]:
-            m.addConstr(gp.quicksum(x[a, c, d] for a in teams) == teams_per_division)
+            m.addConstr(gp.quicksum(x[a, c, d] for a in teams) == league['teams_per_division'])
 
     for t in teams:
         m.addConstr(gp.quicksum(x[t, c, d] for c in confs for d in confs[c]) == 1)
@@ -156,7 +158,7 @@ def in_division_x(x):
     return x.x > 0.99
 
 
-def get_assignment(df, x, in_division=in_division_x):
+def get_assignment(confs, df, x, in_division=in_division_x):
     abbrs = [row['team_abbr'] for i, row in df.iterrows()]
     return [(a, c, d) for c in confs for d in confs[c] for a in abbrs if in_division(x[a, c, d])]
 
@@ -170,5 +172,5 @@ def solve(league, df):
     m, x = base_model_quad(league, df)
     print(m)
     m.optimize()
-    a = get_assignment(df, x)
+    a = get_assignment(league['confs'], df, x)
     return make_solve_result(a, df)

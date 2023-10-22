@@ -1,0 +1,33 @@
+city,name,team_abbr,conf,division,team_lat,team_lng
+Tampa,Tampa Bay Lightning,TBL,EAST,ATLANTIC,27.9427,-82.4518
+Sunrise,Florida Panthers,FLA,EAST,ATLANTIC,26.1585,-80.3255
+Dallas,Dallas Stars,DAL,WEST,CENTRAL,32.7904,-96.8103
+Denver,Colorado Avalanche,COL,WEST,CENTRAL,39.7487,-105.0076
+Montreal,Montreal Canadiens,MTL,EAST,ATLANTIC,45.4961,-73.5693
+Nashville,Nashville Predators,NSH,WEST,CENTRAL,36.1592,-86.7785
+Winnipeg,Winnipeg Jets,WPG,WEST,CENTRAL,49.8927,-97.1435
+Ottawa,Ottawa Senators,OTT,EAST,ATLANTIC,45.2969,-75.9268
+Washington,Washington Capitals,WSH,EAST,METRO,38.8982,-77.0209
+Seattle,Seattle Kraken,SEA,WEST,PACIFIC,47.6221,-122.3541
+Los Angeles,Los Angeles Kings,LAK,WEST,PACIFIC,34.0430,-118.2673
+St. Louis,St. Louis Blues,STL,WEST,CENTRAL,38.6268,-90.2027
+Anaheim,Anaheim Ducks,ANA,WEST,PACIFIC,33.8078,-117.8765
+Buffalo,Buffalo Sabres,BUF,EAST,ATLANTIC,42.8751,-78.8765
+Detroit,Detroit Red Wings,DET,EAST,ATLANTIC,42.3411,-83.0553
+New York City,New York Rangers,NYR,EAST,METRO,40.7505,-73.9934
+Tempe,Arizona Coyotes,ARI,WEST,CENTRAL,33.4256,-111.9287
+Columbus,Columbus Blue Jackets,CBJ,EAST,METRO,39.9692,-83.0060
+Raleigh,Carolina Hurricanes,CAR,EAST,METRO,35.8033,-78.7218
+Pittsburgh,Pittsburgh Penguins,PIT,EAST,METRO,40.4393,-79.9896
+Newark,New Jersey Devils,NJD,EAST,METRO,40.7335,-74.1711
+Vancouver,Vancouver Canucks,VAN,WEST,PACIFIC,49.2778,-123.1088
+Edmonton,Edmonton Oilers,EDM,WEST,PACIFIC,53.5470,-113.4978
+San Jose,San Jose Sharks,SJS,WEST,PACIFIC,37.3330,-121.9020
+Toronto,Toronto Maple Leafs,TOR,EAST,ATLANTIC,43.6435,-79.3791
+Calgary,Calgary Flames,CGY,WEST,PACIFIC,51.0374,-114.0519
+Boston,Boston Bruins,BOS,EAST,ATLANTIC,42.3662,-71.0621
+Paradise,Vegas Golden Knights,VGK,WEST,PACIFIC,36.1028,-115.1782
+Elmont,New York Islanders,NYI,EAST,METRO,40.7118,-73.7260
+Chicago,Chicago Blackhawks,CHI,WEST,CENTRAL,41.8807,-87.6742
+Philadelphia,Philadelphia Flyers,PHI,EAST,METRO,39.9012,-75.1720
+Saint Paul,Minnesota Wild,MIN,WEST,CENTRAL,44.9448,-93.1011
