@@ -18,18 +18,12 @@ def get_locations(teams):
     #return df.merge(logos, on='team_abbr')
     return df
 
-# todo this should be read from a file
-# todo goes in a class or structure of some sort
-# todo this is nfl only.
-# Define the number of teams and divisions
-nfl_confs = {'NFC': ['WEST', 'CENTRAL', 'SOUTH', 'EAST'], 'AFC': ['WEST', 'CENTRAL', 'SOUTH', 'EAST']}
-nfl = {'num_divisions' : 8, 'teams_per_division' : 4, 'confs' : nfl_confs }
+nfl = League.read_csv('data/nfl.csv')
 nfl_data = { 2002 : get_locations("data/nfl-2002.csv"),
              2023 : get_locations("data/nfl-2023.csv")
            }
 
-nhl_confs = {'EAST': ['ATLANTIC', 'METRO'], 'WEST': ['CENTRAL', 'PACIFIC']}
-nhl = {'num_divisions' : 4, 'teams_per_division' : 8, 'confs' : nhl_confs }
+nhl = League.read_csv('data/nhl.csv')
 nhl_data = { 
              2023 : get_locations("data/nhl-2023.csv")
            }
@@ -115,34 +109,32 @@ def forbid_team_constraints(league, m, x):
 def base_model_quad(league, df):
     teams = [row['team_abbr'] for i, row in df.iterrows()] 
     num_teams = df.shape[0]
-    confs = league['confs']
     distances = make_distances(df)
 
     m = gp.Model()
     # x_tcd == 1 if team t is in conference c and division d.
     # note, to linearlize can let z_ijcd = x_icd * x_jcd with [appropriate auxiliary constraints]
-    x = {(t, c, d): m.addVar(vtype=gp.GRB.BINARY, name=f"x_{t}_{c}_{d}") for c in confs for d in confs[c] for t in teams}
+    x = {(t, c, d): m.addVar(vtype=gp.GRB.BINARY, name=f"x_{t}_{c}_{d}") for (c, d) in league.all_divisions for t in teams}
     # y_tc == 1 if team t is in conference c. That is, some x_tcd == 1.
-    y = {(t, c): m.addVar(vtype=gp.GRB.BINARY, name=f"x_{t}_{c}") for c in confs for t in teams}
+    y = {(t, c): m.addVar(vtype=gp.GRB.BINARY, name=f"x_{t}_{c}") for c in league.confs for t in teams}
 
     # todo wrap me in a function to pick the objective.
-    sum_division = gp.quicksum(distances[ai, aj] * x[ai, c, d] * x[aj, c, d] for i, ai in enumerate(teams) for j, aj in enumerate(teams) for c in confs for d in confs[c])
-    sum_same_conf = gp.quicksum(distances[ai, aj] * y[ai, c] * y[aj, c] for i, ai in enumerate(teams) for j, aj in enumerate(teams) for c in confs)
-    sum_diff_conf = gp.quicksum((distances[ai, aj] * y[ai, c] * (1 - y[aj, c])) + (distances[ai, aj] * (1 - y[ai, c]) * y[aj, c])for i, ai in enumerate(teams) for j, aj in enumerate(teams) for c in confs)
+    sum_division = gp.quicksum(distances[ai, aj] * x[ai, c, d] * x[aj, c, d] for i, ai in enumerate(teams) for j, aj in enumerate(teams) for (c, d) in league.all_divisions)
+    sum_same_conf = gp.quicksum(distances[ai, aj] * y[ai, c] * y[aj, c] for i, ai in enumerate(teams) for j, aj in enumerate(teams) for c in league.confs)
+    sum_diff_conf = gp.quicksum((distances[ai, aj] * y[ai, c] * (1 - y[aj, c])) + (distances[ai, aj] * (1 - y[ai, c]) * y[aj, c]) for i, ai in enumerate(teams) for j, aj in enumerate(teams) for c in league.confs)
     #m.setObjective(0.5 * (sum_division + 0.5 * sum_same_conf + 0.25 * sum_diff_conf), gp.GRB.MINIMIZE)
     m.setObjective(0.5 * sum_division, gp.GRB.MINIMIZE)
 
     # structural constraints
-    for c in confs:
-        for d in confs[c]:
-            m.addConstr(gp.quicksum(x[a, c, d] for a in teams) == league['teams_per_division'])
+    for (c, d) in league.all_divisions:
+        m.addConstr(gp.quicksum(x[a, c, d] for a in teams) == league.team_count(c, d))
 
     for t in teams:
-        m.addConstr(gp.quicksum(x[t, c, d] for c in confs for d in confs[c]) == 1)
+        m.addConstr(gp.quicksum(x[t, c, d] for (c, d) in league.all_divisions) == 1)
 
     for t in teams:
-        for c in confs:
-            m.addConstr(gp.quicksum(x[t, c, d] for d in confs[c]) == y[t, c])
+        for c in league.confs:
+            m.addConstr(gp.quicksum(x[t, c, d] for d in league.divisions(c)) == y[t, c])
 
     max_swaps_constraints(league, df, m, x, num_teams)
     fix_division_constraints(league, m, x)
@@ -158,9 +150,9 @@ def in_division_x(x):
     return x.x > 0.99
 
 
-def get_assignment(confs, df, x, in_division=in_division_x):
+def get_assignment(league, df, x, in_division=in_division_x):
     abbrs = [row['team_abbr'] for i, row in df.iterrows()]
-    return [(a, c, d) for c in confs for d in confs[c] for a in abbrs if in_division(x[a, c, d])]
+    return [(a, c, d) for (c, d) in league.all_divisions for a in abbrs if in_division(x[a, c, d])]
 
 
 def make_solve_result(a, df, keep=['team_lat', 'team_lng']):
@@ -172,5 +164,5 @@ def solve(league, df):
     m, x = base_model_quad(league, df)
     print(m)
     m.optimize()
-    a = get_assignment(league['confs'], df, x)
+    a = get_assignment(league, df, x)
     return make_solve_result(a, df)
