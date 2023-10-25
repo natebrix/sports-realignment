@@ -36,7 +36,7 @@ def order_by_division_paths(df, keys):
     ds = [division_path(g[1]) for g in df.groupby(by=keys)]
     return pd.concat(ds)
 
-def plot_divisions(df, keys=['conf', 'division'], scope='usa'):
+def plot_divisions(df, keys=['conf', 'division'], scope='north america'):
     data = order_by_division_paths(df, keys)
     data['label'] = data[keys].agg(' '.join, axis=1)
     fig = px.line_geo(data, lon="team_lng", lat="team_lat", scope=scope, color='label', 
@@ -63,7 +63,7 @@ def plot_divisions(df, keys=['conf', 'division'], scope='usa'):
     )
     fig.show()
 
-def plot_teams(df, scope='usa'):
+def plot_teams(df, scope='north america'):
     # Create a scatterplot of the team locations
     data = go.Scattergeo(
         lat = df['team_lat'],

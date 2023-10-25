@@ -12,10 +12,8 @@ import gurobipy as gp
 #tom = pd.read_csv('data/tom.csv')
 
 def get_locations(teams):
-    #logos = nfl.import_team_desc()
     df = pd.read_csv(teams)
     df['team'] = df.index
-    #return df.merge(logos, on='team_abbr')
     return df
 
 nfl = League.read_csv('data/nfl.csv')
@@ -26,6 +24,11 @@ nfl_data = { 2002 : get_locations("data/nfl-2002.csv"),
 nhl = League.read_csv('data/nhl.csv')
 nhl_data = { 
              2023 : get_locations("data/nhl-2023.csv")
+           }
+
+mlb = League.read_csv('data/mlb.csv')
+mlb_data = { 
+             2023 : get_locations("data/mlb-2023.csv")
            }
 
 # stackoverflow
