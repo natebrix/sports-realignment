@@ -1,13 +1,10 @@
 from math import radians, cos, sin, asin, sqrt
 import pandas as pd
-import gurobipy as gp
-#import nfl_data_py as nfl
-
-# MLB here: https://en.wikipedia.org/wiki/Major_League_Baseball
 
 # x schedule aware based on NFL rules
 # competitive balance
-# 
+# have a UI to drive this
+# use SCIP
 
 #tom = pd.read_csv('data/tom.csv')
 
@@ -15,6 +12,7 @@ def get_locations(teams):
     df = pd.read_csv(teams)
     df['team'] = df.index
     return df
+
 
 nfl = League.read_csv('data/nfl.csv')
 nfl_data = { 2002 : get_locations("data/nfl-2002.csv"),
@@ -74,7 +72,7 @@ def max_swaps_constraints(league, df, m, x, num_teams):
     if fixed_teams > 0:
         print(f'MAX SWAPS {max_swaps}')
         # todo brittle...why???
-        m.addConstr(gp.quicksum(x[t, df.loc[i, 'conf'], df.loc[i, 'division']] for i, t in enumerate(teams)) >= fixed_teams) 
+        m.addConstr(m.quicksum(x[t, df.loc[i, 'conf'], df.loc[i, 'division']] for i, t in enumerate(teams)) >= fixed_teams) 
 
 
 def fix_division_constraints(league, m, x):
@@ -109,43 +107,61 @@ def forbid_team_constraints(league, m, x):
                 m.addConstr(x[i, c, d] + x[j, c, d] <= 1)
 
 
-def base_model_quad(league, df):
+# todo add wrapper for Gurobi/SCIP
+# model
+# addvar
+# addconstr
+
+def base_model_quad(league, df, model, **args):
     teams = [row['team_abbr'] for i, row in df.iterrows()] 
     num_teams = df.shape[0]
     distances = make_distances(df)
+    linearize = args['linearize'] if args.get('linearize') else False
 
-    m = gp.Model()
+    m = model()
     # x_tcd == 1 if team t is in conference c and division d.
-    # note, to linearlize can let z_ijcd = x_icd * x_jcd with [appropriate auxiliary constraints]
-    x = {(t, c, d): m.addVar(vtype=gp.GRB.BINARY, name=f"x_{t}_{c}_{d}") for (c, d) in league.all_divisions for t in teams}
+    x = {(t, c, d): m.addBinaryVar(name=f"x_{t}_{c}_{d}") for (c, d) in league.all_divisions for t in teams}
     # y_tc == 1 if team t is in conference c. That is, some x_tcd == 1.
-    y = {(t, c): m.addVar(vtype=gp.GRB.BINARY, name=f"x_{t}_{c}") for c in league.confs for t in teams}
+    y = {(t, c): m.addBinaryVar(name=f"x_{t}_{c}") for c in league.confs for t in teams}
+    if linearize:
+        # z_t1t2cd == 1 if teams t1 and t2 are in conference c and division d.
+        z = {(t1, t2, c, d): m.addBinaryVar(name=f"z_{t1}_{t2}_{c}_{d}") for (c, d) in league.all_divisions for t1 in teams for t2 in teams}
+        for (c, d) in league.all_divisions:
+            for t1 in teams:
+                for t2 in teams:
+                    m.addConstr(z[t1, t2, c, d] <= x[t1, c, d])
+                    m.addConstr(z[t1, t2, c, d] >= x[t1, c, d] + x[t2, c, d] - 1)
 
     # todo wrap me in a function to pick the objective.
-    sum_division = gp.quicksum(distances[ai, aj] * x[ai, c, d] * x[aj, c, d] for i, ai in enumerate(teams) for j, aj in enumerate(teams) for (c, d) in league.all_divisions)
-    sum_same_conf = gp.quicksum(distances[ai, aj] * y[ai, c] * y[aj, c] for i, ai in enumerate(teams) for j, aj in enumerate(teams) for c in league.confs)
-    sum_diff_conf = gp.quicksum((distances[ai, aj] * y[ai, c] * (1 - y[aj, c])) + (distances[ai, aj] * (1 - y[ai, c]) * y[aj, c]) for i, ai in enumerate(teams) for j, aj in enumerate(teams) for c in league.confs)
-    #m.setObjective(0.5 * (sum_division + 0.5 * sum_same_conf + 0.25 * sum_diff_conf), gp.GRB.MINIMIZE)
-    m.setObjective(0.5 * sum_division, gp.GRB.MINIMIZE)
+    if linearize:
+        sum_division = m.quicksum(distances[ai, aj] * z[ai, aj, c, d] for i, ai in enumerate(teams) for j, aj in enumerate(teams) for (c, d) in league.all_divisions)
+    else:
+        sum_division = m.quicksum(distances[ai, aj] * x[ai, c, d] * x[aj, c, d] for i, ai in enumerate(teams) for j, aj in enumerate(teams) for (c, d) in league.all_divisions)
+    sum_same_conf = m.quicksum(distances[ai, aj] * y[ai, c] * y[aj, c] for i, ai in enumerate(teams) for j, aj in enumerate(teams) for c in league.confs)
+    sum_diff_conf = m.quicksum((distances[ai, aj] * y[ai, c] * (1 - y[aj, c])) + (distances[ai, aj] * (1 - y[ai, c]) * y[aj, c]) for i, ai in enumerate(teams) for j, aj in enumerate(teams) for c in league.confs)
+    m.setObjective(0.5 * sum_division, m.minimize)
 
     # structural constraints
     for (c, d) in league.all_divisions:
-        m.addConstr(gp.quicksum(x[a, c, d] for a in teams) == league.team_count(c, d))
+        m.addConstr(m.quicksum(x[a, c, d] for a in teams) == league.team_count(c, d))
 
     for t in teams:
-        m.addConstr(gp.quicksum(x[t, c, d] for (c, d) in league.all_divisions) == 1)
+        m.addConstr(m.quicksum(x[t, c, d] for (c, d) in league.all_divisions) == 1)
 
     for t in teams:
         for c in league.confs:
-            m.addConstr(gp.quicksum(x[t, c, d] for d in league.divisions(c)) == y[t, c])
+            m.addConstr(m.quicksum(x[t, c, d] for d in league.divisions(c)) == y[t, c])
 
     max_swaps_constraints(league, df, m, x, num_teams)
     fix_division_constraints(league, m, x)
     fix_conference_constraints(league, m, y)
     forbid_team_constraints(league, m, x)
 
-    m.write('model.mps')
-    m.params.NonConvex = 2
+    if args.get('mps_file'):
+        m.write(args['mps_file'])
+
+    if not linearize:
+        m.params.NonConvex = 2 # todo gurobi only
     return m, x
 
 
@@ -163,8 +179,8 @@ def make_solve_result(a, df, keep=['team_lat', 'team_lng']):
     return pd.merge(r, df[['team_abbr'] + keep], on='team_abbr')
 
 
-def solve(league, df):
-    m, x = base_model_quad(league, df)
+def solve(league, df, model=GurobiModel, **args):
+    m, x = base_model_quad(league, df, model, **args)
     print(m)
     m.optimize()
     a = get_assignment(league, df, x)
