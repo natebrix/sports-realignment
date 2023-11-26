@@ -119,6 +119,11 @@ def base_model_quad(league, df, model, **args):
     linearize = args['linearize'] if args.get('linearize') else False
 
     m = model()
+    if not linearize:
+        m.setNonconvex()
+
+    # note: for SCIP need to set cost == objective and then minimize cost.
+
     # x_tcd == 1 if team t is in conference c and division d.
     x = {(t, c, d): m.addBinaryVar(name=f"x_{t}_{c}_{d}") for (c, d) in league.all_divisions for t in teams}
     # y_tc == 1 if team t is in conference c. That is, some x_tcd == 1.
@@ -160,8 +165,6 @@ def base_model_quad(league, df, model, **args):
     if args.get('mps_file'):
         m.write(args['mps_file'])
 
-    if not linearize:
-        m.params.NonConvex = 2 # todo gurobi only
     return m, x
 
 

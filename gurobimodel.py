@@ -7,3 +7,6 @@ class GurobiModel(gp.Model):
     
     quicksum = gp.quicksum
     minimize = gp.GRB.MINIMIZE
+
+    def setNonconvex(self):
+        self.params.NonConvex = 2 
