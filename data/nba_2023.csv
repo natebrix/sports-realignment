@@ -1,0 +1,31 @@
+field,name,team_abbr,conf,division,team_lat,team_lng
+State Farm Arena,Atlanta Hawks,ATL,Eastern,Southeast,33.7573,-84.3963
+TD Garden,Boston Celtics,BOS,Eastern,Atlantic,42.3663,-71.0622
+Barclays Center,Brooklyn Nets,BKN,Eastern,Atlantic,40.6826,-73.9754
+Spectrum Center,Charlotte Hornets,CHA,Eastern,Southeast,35.2251,-80.8392
+United Center,Chicago Bulls,CHI,Eastern,Central,41.8807,-87.6742
+Rocket Mortgage FieldHouse,Cleveland Cavaliers,CLE,Eastern,Central,41.4965,-81.6882
+Little Caesars Arena,Detroit Pistons,DET,Eastern,Central,42.3411,-83.0553
+Gainbridge Fieldhouse,Indiana Pacers,IND,Eastern,Central,39.764,-86.1555
+FTX Arena,Miami Heat,MIA,Eastern,Southeast,25.7814,-80.1878
+Fiserv Forum,Milwaukee Bucks,MIL,Eastern,Central,43.0451,-87.9174
+Madison Square Garden,New York Knicks,NYK,Eastern,Atlantic,40.7505,-73.9934
+Amway Center,Orlando Magic,ORL,Eastern,Southeast,28.5392,-81.3839
+Wells Fargo Center,Philadelphia 76ers,PHI,Eastern,Atlantic,39.9012,-75.1719
+Scotiabank Arena,Toronto Raptors,TOR,Eastern,Atlantic,43.6435,-79.3791
+Capital One Arena,Washington Wizards,WAS,Eastern,Southeast,38.898,-77.0209
+Chase Center,Golden State Warriors,GSW,Western,Pacific,37.768,-122.3879
+Staples Center,Los Angeles Clippers,LAC,Western,Pacific,34.043,-118.2672
+Staples Center,Los Angeles Lakers,LAL,Western,Pacific,34.043,-118.2672
+Footprint Center,Phoenix Suns,PHX,Western,Pacific,33.4457,-112.0712
+Golden 1 Center,Sacramento Kings,SAC,Western,Pacific,38.5802,-121.4997
+Ball Arena,Denver Nuggets,DEN,Western,Northwest,39.7487,-105.0077
+Target Center,Minnesota Timberwolves,MIN,Western,Northwest,44.9795,-93.276
+Paycom Center,Oklahoma City Thunder,OKC,Western,Northwest,35.4634,-97.5151
+Moda Center,Portland Trail Blazers,POR,Western,Northwest,45.5316,-122.6668
+Vivint Arena,Utah Jazz,UTA,Western,Northwest,40.7683,-111.9011
+American Airlines Center,Dallas Mavericks,DAL,Western,Southwest,32.7905,-96.8103
+Toyota Center,Houston Rockets,HOU,Western,Southwest,29.7508,-95.3621
+FedExForum,Memphis Grizzlies,MEM,Western,Southwest,35.1382,-90.0506
+AT&T Center,San Antonio Spurs,SAS,Western,Southwest,29.4269,-98.4375
+Smoothie King Center,New Orleans Pelicans,NOP,Western,Southwest,29.949,-90.0812
