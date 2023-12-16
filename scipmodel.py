@@ -9,8 +9,8 @@ class ScipModel(scip.Model):
     def addBinaryVar(self, name):
         return self.addVar(vtype="B", name=name) 
 
-    def addContinuousVar(self, name):
-        return self.addVar(vtype="C", name=name) 
+    def addContinuousVar(self, name, lb=-scip.infinity(), ub=scip.infinity()):
+        return self.addVar(vtype="C", name=name, lb=lb, ub=ub) 
 
     quicksum = scip.quicksum
     minimize = "minimize"

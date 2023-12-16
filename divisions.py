@@ -9,6 +9,11 @@ def get_locations(teams):
     return df
 
 
+def get_ratings(ratings):
+    df = pd.read_csv(ratings)
+    return df
+
+
 nfl = League.read_csv('data/nfl.csv')
 nfl_data = { 2002 : get_locations("data/nfl-2002.csv"),
              2023 : get_locations("data/nfl-2023.csv")
@@ -22,6 +27,11 @@ nhl_data = {
 mlb = League.read_csv('data/mlb.csv')
 mlb_data = { 
              2023 : get_locations("data/mlb-2023.csv")
+           }
+
+nba = League.read_csv('data/nba.csv')
+nba_data = { 
+             2023 : get_locations("data/nba-2023.csv")
            }
 
 # stackoverflow
@@ -49,6 +59,18 @@ def distance_row(r, distances):
 def make_distances(df):
     ll = ['team_abbr', 'team_lat', 'team_lng']
     return {(t[0], t[1]) : t[2] for t in df[ll].merge(df[ll], how='cross').apply(lambda r: haversine_row(r), axis=1).tolist()}
+
+def make_scores(df):
+    return df.set_index('team_abbr')['rating'].to_dict()
+
+
+def objective_columns(objective):
+    if objective[0] == 'c':
+        return ['rating']
+    elif objective[0] == 'd':
+        return ['team_lat', 'team_lng']
+    else:
+        raise Exception(f'unknown objective {objective}')
 
 
 def score_division(div, distances):
@@ -123,34 +145,17 @@ class Realign:
         # gap in strengths between divisions.
         # let s_t be the strength of team t.  Then r_cd = sum_t x_tcd * s_t is the strength of division d.
         # Then want to minimize r_cd - r_c'd' for all c, d, c', d' where c != c' or d != d'.
-        if True:
-            r = {(c, d): m.addVar(name=f"r_{c}_{d}") for (c, d) in self.league.all_divisions}
-            for (c, d) in self.league.all_divisions:
-                m.addConstr(r[c, d] == self.model.quicksum(x[t, c, d] * s[t] for i, t in enumerate(teams)))
-            m.setObjective(self.model.quicksum(r[c, d] - r[c2, d2] for (c, d) in self.league.all_divisions for (c2, d2) in self.league.all_divisions if c != c2 or d != d2), self.model.minimize)
+        r = {(c, d): m.addContinuousVar(name=f"r_{c}_{d}", lb=float('-inf')) for (c, d) in self.league.all_divisions}
+        for (c, d) in self.league.all_divisions:
+            m.addConstr(r[c, d] == self.model.quicksum(x[t, c, d] * s[t] for t in teams))
+        rm = m.addContinuousVar(name="rm", lb=float('-inf'))
+        m.addConstrs(rm >= r[c, d] - r[c2, d2] for (c, d) in self.league.all_divisions for (c2, d2) in self.league.all_divisions)
+        m.setObjective(rm, self.model.minimize)
 
-
-    def get_arg(self, args, key, default):
-        return args[key] if args.get(key) else default
-
-    def base_model_quad(self, df, **args):
-        teams = [row['team_abbr'] for i, row in df.iterrows()] 
-        num_teams = df.shape[0]
-        distances = make_distances(df)
+    def distance_objective(self, teams, distances, m, x, y, **args):
         linearize = self.get_arg(args, 'linearize', False)
         dummy = self.get_arg(args, 'dummy', False)
 
-        m = self.model()
-        m.setNonconvex(not linearize)
-
-        # I could introduce a variable w_tu which is 1 iff t and u are in the same division.
-        # then x_tcd + x_ucd - 1 <= w_tu for all t, u, c, d
-
-        # x_tcd == 1 if team t is in conference c and division d.
-        x = {(t, c, d): m.addBinaryVar(name=f"x_{t}_{c}_{d}") for (c, d) in self.league.all_divisions for t in teams}
-
-        # y_tc == 1 if team t is in conference c. That is, some x_tcd == 1.
-        y = {(t, c): m.addBinaryVar(name=f"x_{t}_{c}") for c in self.league.confs for t in teams}
         if linearize:
             # z_t1t2cd == 1 if teams t1 and t2 are in conference c and division d.
             z = {(t1, t2, c, d): m.addBinaryVar(name=f"z_{t1}_{t2}_{c}_{d}") for (c, d) in self.league.all_divisions for t1 in teams for t2 in teams}
@@ -160,7 +165,6 @@ class Realign:
                         m.addConstr(z[t1, t2, c, d] <= x[t1, c, d])
                         m.addConstr(z[t1, t2, c, d] >= x[t1, c, d] + x[t2, c, d] - 1)
 
-        # todo wrap me in a function to pick the objective.
         if linearize:
             sum_division = self.model.quicksum(distances[ai, aj] * z[ai, aj, c, d] for i, ai in enumerate(teams) for j, aj in enumerate(teams) for (c, d) in self.league.all_divisions)
         else:
@@ -175,6 +179,37 @@ class Realign:
             m.addConstr(dummy_obj == obj)
         else:
             m.setObjective(obj, self.model.minimize)
+
+    def get_arg(self, args, key, default):
+        return args[key] if args.get(key) else default
+
+    def base_model_quad(self, df, objective='distance', **args):
+        linearize = self.get_arg(args, 'linearize', False)
+        # todo: do some kind of check to make sure df is compatible with league
+        teams = [row['team_abbr'] for i, row in df.iterrows()] 
+        num_teams = df.shape[0]
+
+        m = self.model()
+        m.setNonconvex(not linearize)
+
+        # I could introduce a variable w_tu which is 1 iff t and u are in the same division.
+        # then x_tcd + x_ucd - 1 <= w_tu for all t, u, c, d
+
+        # x_tcd == 1 if team t is in conference c and division d.
+        x = {(t, c, d): m.addBinaryVar(name=f"x_{t}_{c}_{d}") for (c, d) in self.league.all_divisions for t in teams}
+
+        # y_tc == 1 if team t is in conference c. That is, some x_tcd == 1.
+        y = {(t, c): m.addBinaryVar(name=f"x_{t}_{c}") for c in self.league.confs for t in teams}
+
+        # todo wrap me in a function to pick the objective.
+        if objective[0] == 'd':
+            distances = make_distances(df)
+            self.distance_objective(teams, distances, m, x, y, **args)
+        elif objective[0] == 'c':
+            s = make_scores(df)
+            self.competitiveness_objective(teams, s, m, x)
+        else:
+            raise Exception(f'unknown objective {objective}')
 
         self.structural_constraints(teams, m, x, y)
         self.max_swaps_constraints(df, m, x, num_teams)
@@ -197,14 +232,19 @@ class Realign:
         return [(a, c, d) for (c, d) in self.league.all_divisions for a in abbrs if self.in_division_x(x[a, c, d])]
 
 
-    def make_solve_result(self, a, df, keep=['team_lat', 'team_lng']):
+    def make_solve_result(self, a, df, keep):
         r = pd.DataFrame(a, columns=['team_abbr', 'conf', 'division'])
         return pd.merge(r, df[['team_abbr'] + keep], on='team_abbr')
 
+    def print_vars(self, m, not_starting_with=[]):
+        for v in m.getVars():
+            if v.varName[0] not in not_starting_with:
+                print(f'{v.varName} = {v.x}')
 
-    def solve(self, df, **args):
-        m, x = self.base_model_quad(df, **args)
+    def solve(self, df, objective='distance', **args):
+        m, x = self.base_model_quad(df, objective, **args)
         m.optimize()
         a = self.get_assignment( df, x)
-        return self.make_solve_result(a, df)
+        #self.print_vars(m, ['x', 'y'])
+        return self.make_solve_result(a, df, objective_columns(objective))
 
