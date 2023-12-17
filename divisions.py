@@ -3,37 +3,6 @@ import pandas as pd
 
 #tom = pd.read_csv('data/tom.csv')
 
-def get_locations(teams):
-    df = pd.read_csv(teams)
-    df['team'] = df.index
-    return df
-
-
-def get_ratings(ratings):
-    df = pd.read_csv(ratings)
-    return df
-
-
-nfl = League.read_csv('data/nfl.csv')
-nfl_data = { 2002 : get_locations("data/nfl-2002.csv"),
-             2023 : get_locations("data/nfl-2023.csv")
-           }
-
-nhl = League.read_csv('data/nhl.csv')
-nhl_data = { 
-             2023 : get_locations("data/nhl-2023.csv")
-           }
-
-mlb = League.read_csv('data/mlb.csv')
-mlb_data = { 
-             2023 : get_locations("data/mlb-2023.csv")
-           }
-
-nba = League.read_csv('data/nba.csv')
-nba_data = { 
-             2023 : get_locations("data/nba-2023.csv")
-           }
-
 # stackoverflow
 def haversine(lat1, lon1, lat2, lon2):
       #R = 3959.87433 # this is in miles.  For Earth radius in kilometers use 6372.8 km
@@ -143,8 +112,6 @@ class Realign:
     def competitiveness_objective(self, teams, s, m, x):
         # if we are trying to maximize competitiveness then what we want is to minimize the maximum 
         # gap in strengths between divisions.
-        # let s_t be the strength of team t.  Then r_cd = sum_t x_tcd * s_t is the strength of division d.
-        # Then want to minimize r_cd - r_c'd' for all c, d, c', d' where c != c' or d != d'.
         r = {(c, d): m.addContinuousVar(name=f"r_{c}_{d}", lb=float('-inf')) for (c, d) in self.league.all_divisions}
         for (c, d) in self.league.all_divisions:
             m.addConstr(r[c, d] == self.model.quicksum(x[t, c, d] * s[t] for t in teams))
@@ -201,13 +168,12 @@ class Realign:
         # y_tc == 1 if team t is in conference c. That is, some x_tcd == 1.
         y = {(t, c): m.addBinaryVar(name=f"x_{t}_{c}") for c in self.league.confs for t in teams}
 
-        # todo wrap me in a function to pick the objective.
         if objective[0] == 'd':
             distances = make_distances(df)
             self.distance_objective(teams, distances, m, x, y, **args)
         elif objective[0] == 'c':
-            s = make_scores(df)
-            self.competitiveness_objective(teams, s, m, x)
+            scores = make_scores(df)
+            self.competitiveness_objective(teams, scores, m, x)
         else:
             raise Exception(f'unknown objective {objective}')
 
@@ -245,6 +211,7 @@ class Realign:
         m, x = self.base_model_quad(df, objective, **args)
         m.optimize()
         a = self.get_assignment( df, x)
-        #self.print_vars(m, ['x', 'y'])
+        if self.get_arg(args, 'verbose', False):
+            self.print_vars(m, ['x', 'y'])
         return self.make_solve_result(a, df, objective_columns(objective))
 
