@@ -1,6 +1,6 @@
 from math import radians, cos, sin, asin, sqrt
 import pandas as pd
-
+from datetime import datetime
 #tom = pd.read_csv('data/tom.csv')
 
 # stackoverflow
@@ -53,6 +53,16 @@ class Realign:
     def __init__(self, league, model) -> None:
         self.league = league
         self.model = model
+        suffix = datetime.now().strftime("%Y_%m_%d")
+        self.logfile = f'realign_{suffix}.log'
+
+    def log_solve(self, objective, **args):
+        with open(self.logfile, 'a') as f:
+            f.write(f'**** SOLVE {datetime.now()}\n')
+            f.write(f'objective = {objective}\n')
+            f.write(f'{self.league.all_divisions}\n')
+            for arg in args:
+                f.write(f'{arg} = {args[arg]}\n')
 
     def max_swaps_constraints(self, df, m, x, num_teams):
         teams = df['team_abbr'].unique() # [row['team_abbr'] for i, row in df.iterrows()] # todo seems bad
@@ -158,6 +168,7 @@ class Realign:
 
         m = self.model()
         m.setNonconvex(not linearize)
+        m.setLogFile(self.logfile) # todo write all the other data to this too
 
         # I could introduce a variable w_tu which is 1 iff t and u are in the same division.
         # then x_tcd + x_ucd - 1 <= w_tu for all t, u, c, d
@@ -208,6 +219,7 @@ class Realign:
                 print(f'{v.varName} = {v.x}')
 
     def solve(self, df, objective='distance', **args):
+        self.log_solve(objective, **args)
         m, x = self.base_model_quad(df, objective, **args)
         m.optimize()
         a = self.get_assignment( df, x)

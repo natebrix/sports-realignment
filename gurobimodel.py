@@ -1,9 +1,17 @@
 import gurobipy as gp
 
+
 # wrapper for gurobipy model to enable solver-agnostic code.
 class GurobiModel(gp.Model):    
     quicksum = gp.quicksum
     minimize = gp.GRB.MINIMIZE
+
+    def __init__(self):
+        super().__init__()
+        self.params.NonConvex = 0
+
+    def setLogFile(self, filename):
+        self.setParam(gp.GRB.Param.LogFile, filename)
 
     def addBinaryVar(self, name):
         return self.addVar(vtype=gp.GRB.BINARY, name=name) 
