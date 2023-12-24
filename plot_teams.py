@@ -1,7 +1,7 @@
 import plotly.express as px
 import plotly.graph_objs as go
 # https://stackoverflow.com/questions/11416024/error-installing-python-snappy-snappy-c-h-no-such-file-or-directory
-from PIL import Image
+#from PIL import Image
 import numpy as np
 import pandas as pd
 import os
@@ -36,7 +36,7 @@ def order_by_division_paths(df, keys):
     ds = [division_path(g[1]) for g in df.groupby(by=keys)]
     return pd.concat(ds)
 
-def plot_divisions(df, keys=['conf', 'division'], scope='north america'):
+def plot_divisions(df, keys=['conf', 'division'], scope='north america', title=None):
     data = order_by_division_paths(df, keys)
     data['label'] = data[keys].agg(' '.join, axis=1)
     fig = px.line_geo(data, lon="team_lng", lat="team_lat", scope=scope, color='label', 
@@ -45,7 +45,7 @@ def plot_divisions(df, keys=['conf', 'division'], scope='north america'):
     fig.layout = go.Layout(
         geo = dict(
             scope = scope,
-            center = { "lat": 44, "lon": -106.33844897531482 }, # nhl
+            #center = { "lat": 44, "lon": -106.33844897531482 }, # nhl NOOO
             projection = {"type": "albers", "scale": 2.2}, # nhl
             #projection = dict(type = 'albers usa'),
             showland = True,
@@ -56,14 +56,22 @@ def plot_divisions(df, keys=['conf', 'division'], scope='north america'):
             subunitwidth = 0.5
         ),
         title = dict(
-            text = 'Team Stadium Locations',
+            text = title,
             font = dict(size = 28)
-        ),
+        ) if title else None,
         margin = dict(r = 0, l = 0, t = 100, b = 0)
     )
+    fig.update_layout(legend=dict(
+        yanchor="bottom",
+        y=-0.01,
+        xanchor="center",
+        x=0.5,
+        orientation='h'
+    ))
     fig.show()
+    return fig
 
-def plot_teams(df, scope='north america'):
+def plot_teams(df, scope='north america', title=None):
     # Create a scatterplot of the team locations
     data = go.Scattergeo(
         lat = df['team_lat'],
@@ -92,12 +100,12 @@ def plot_teams(df, scope='north america'):
             subunitwidth = 0.5
         ),
         title = dict(
-            text = 'Team Stadium Locations',
-            font = dict(size = 28)
-        ),
+            text = title,
+            font = dict(size = 28) 
+        ) if title else None,
         margin = dict(r = 0, l = 0, t = 100, b = 0)
     )
 
     fig = go.Figure(data = [data], layout = layout)
-
-    fig.show()
+    fig.show()    
+    return fig
