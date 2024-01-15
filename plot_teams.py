@@ -36,18 +36,30 @@ def order_by_division_paths(df, keys):
     ds = [division_path(g[1]) for g in df.groupby(by=keys)]
     return pd.concat(ds)
 
-def plot_divisions(df, keys=['conf', 'division'], scope='north america', title=None):
+def projection_for_league(league):
+    if league == 'nfl':
+        return dict(type = 'albers usa')
+    elif league == 'nba':
+        return dict(type = 'albers usa')
+    elif league == 'mlb':
+        return dict(type = 'albers usa')
+    elif league == 'nhl':
+        return {"type": "albers", "scale": 2.2}
+    else:
+        raise ValueError(f"Unknown league {league}")
+
+def plot_divisions(league, df, keys=['conf', 'division'], scope='north america', title=None):
     data = order_by_division_paths(df, keys)
     data['label'] = data[keys].agg(' '.join, axis=1)
     fig = px.line_geo(data, lon="team_lng", lat="team_lat", scope=scope, color='label', 
                       text = data['team_abbr'])
     fig.update_traces(textposition='top center')
+    proj = projection_for_league(league)
     fig.layout = go.Layout(
         geo = dict(
             scope = scope,
             #center = { "lat": 44, "lon": -106.33844897531482 }, # nhl NOOO
-            projection = {"type": "albers", "scale": 2.2}, # nhl
-            #projection = dict(type = 'albers usa'),
+            projection = proj,
             showland = True,
             landcolor = 'rgb(250, 250, 250)',
             subunitcolor = 'rgb(217, 217, 217)',

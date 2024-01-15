@@ -1,6 +1,7 @@
 from math import radians, cos, sin, asin, sqrt
 import pandas as pd
 from datetime import datetime
+import timeit
 #tom = pd.read_csv('data/tom.csv')
 
 # stackoverflow
@@ -55,6 +56,10 @@ class Realign:
         self.model = model
         suffix = datetime.now().strftime("%Y_%m_%d")
         self.logfile = f'realign_{suffix}.log'
+
+    def log(self, msg):
+        with open(self.logfile, 'a') as f:
+            f.write(f'{msg}\n')
 
     def log_solve(self, objective, **args):
         with open(self.logfile, 'a') as f:
@@ -128,6 +133,15 @@ class Realign:
         rm = m.addContinuousVar(name="rm", lb=float('-inf'))
         m.addConstrs(rm >= r[c, d] - r[c2, d2] for (c, d) in self.league.all_divisions for (c2, d2) in self.league.all_divisions)
         m.setObjective(rm, self.model.minimize)
+
+    # todo stability objective
+    def stability_objective(self, teams, s, m, x):
+        # we want to minimize the number of teams that change divisions
+        # we want an indicator variable for each team that is 1 if the team changes divisions
+        u = {t: m.addBinaryVar(name=f"u_{t}") for t in teams}
+        # df.loc[i, 'conf'], df.loc[i, 'division']]
+        m.addConstr(m.quicksum(x[t, df.loc[i, 'conf'], df.loc[i, 'division']] for i, t in enumerate(teams)) >= fixed_teams) 
+
 
     def distance_objective(self, teams, distances, m, x, y, **args):
         linearize = self.get_arg(args, 'linearize', False)
@@ -221,9 +235,12 @@ class Realign:
     def solve(self, df, objective='distance', **args):
         self.log_solve(objective, **args)
         m, x = self.base_model_quad(df, objective, **args)
-        m.optimize()
+        t = timeit.timeit(m.optimize, number=1)
+        self.log(f'elapsed time = {t}')
         a = self.get_assignment( df, x)
         if self.get_arg(args, 'verbose', False):
             self.print_vars(m, ['x', 'y'])
-        return self.make_solve_result(a, df, objective_columns(objective))
+        r = self.make_solve_result(a, df, objective_columns(objective))
+        self.log(str(r))
+        return r
 

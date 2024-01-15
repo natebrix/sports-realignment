@@ -27,6 +27,12 @@ def get_ratings(ratings):
     df = pd.read_csv(ratings)
     return df
 
+
+def log_to_file(logfile, msg):
+    with open(logfile, 'a') as f:
+        f.write(f'{msg}\n')
+
+
 nfl = League.read_csv('data/nfl.csv')
 nfl_data = { 2002 : get_locations("data/nfl-2002.csv"),
              2023 : get_locations("data/nfl-2023.csv"),
@@ -48,3 +54,16 @@ nba_data = {
              2023 : get_locations("data/nba-2023.csv")
            }
 
+
+class LeagueInfo:
+    def __init__(self, name, league, seasons):
+        self.name = name
+        self.league = league
+        self.seasons = seasons
+
+leagues = [ 
+    LeagueInfo('nfl', nfl, nfl_data),
+    LeagueInfo('mlb', mlb, mlb_data),
+    LeagueInfo('nba', nba, nba_data),
+    LeagueInfo('nhl', nhl, nhl_data)
+]
