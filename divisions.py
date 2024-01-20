@@ -239,11 +239,41 @@ class Realign:
     def make_incumbent_result(self, df):
         return df[['team_abbr', 'conf', 'division', 'team_lat', 'team_lng']]
 
+    # v: entries
+    # k: number of teams in division
+    def greedy_step(self, v, team_count):
+        # how to honor constraints...
+        # here we can fill in any fixed ones.
+        f = v.pop(0)
+        t = set(f[0])
+        while len(t) < team_count:
+            # print(t, len(v))
+            i = next(i for i, x in enumerate(v) if (x[0][0] in t) or (x[0][1] in t))
+            f = v.pop(i)
+            t |= set(f[0])
+        return list(t)
 
-    def solve(self, df, objective='distance', **args):
+
+    def solve_greedy_distance(self, df):
+        distances = make_distances(df)
+        v = sorted([x for x in distances.items() if x[0][0] < x[0][1]], key=lambda x: x[1])
+        results = []
+        for (c, d) in self.league.all_divisions:
+            print(f'{c} {d}')
+            div = self.greedy_step(v, self.league.team_count(c, d))
+            for t in div:
+                results.append([t, c, d])
+            print(div)
+            v = [x for x in v if x[0][0] not in div and x[0][1] not in div] # not efficient
+        return results
+
+    def solve(self, df, objective='distance', algorithm='optimal', **args):
         self.log_solve(objective, **args)
-        if objective == 'none':
+        if algorithm == 'none':
             r = self.make_incumbent_result(df)
+        elif algorithm == 'greedy':
+            a = self.solve_greedy_distance(df)
+            r = self.make_solve_result(a, df, objective_columns(objective))
         else:
             m, x = self.base_model_quad(df, objective, **args)
             t = timeit.timeit(m.optimize, number=1)
