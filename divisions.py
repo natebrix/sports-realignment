@@ -5,6 +5,7 @@ import timeit
 #tom = pd.read_csv('data/tom.csv')
 
 # stackoverflow
+# Computes the haversine distance between two points.
 def haversine(lat1, lon1, lat2, lon2):
       #R = 3959.87433 # this is in miles.  For Earth radius in kilometers use 6372.8 km
       R = 6372.8  # km
@@ -26,14 +27,16 @@ def distance_row(r, distances):
     return distances[r['team_abbr_x'], r['team_abbr_y']]         
 
 
+# returns a dictionary of distances between all pairs of teams
 def make_distances(df):
     ll = ['team_abbr', 'team_lat', 'team_lng']
     return {(t[0], t[1]) : t[2] for t in df[ll].merge(df[ll], how='cross').apply(lambda r: haversine_row(r), axis=1).tolist()}
 
+# returns a dictionary of scores for each team
 def make_scores(df):
     return df.set_index('team_abbr')['rating'].to_dict()
 
-
+# returns a list of columns to use for the objective
 def objective_columns(objective):
     if objective[0] == 'c':
         return ['rating']
@@ -41,7 +44,6 @@ def objective_columns(objective):
         return ['team_lat', 'team_lng']
     else:
         raise Exception(f'unknown objective {objective}')
-
 
 def score_division(div, distances):
     return sum(div.merge(div, how='cross').apply(lambda r: distance_row(r, distances), axis=1).tolist())
@@ -58,8 +60,7 @@ class Realign:
         self.logfile = f'realign_{suffix}.log'
 
     def log(self, msg):
-        with open(self.logfile, 'a') as f:
-            f.write(f'{msg}\n')
+        log_to_file(self.logfile, msg)
 
     def log_solve(self, objective, **args):
         with open(self.logfile, 'a') as f:
@@ -174,6 +175,7 @@ class Realign:
     def get_arg(self, args, key, default):
         return args[key] if args.get(key) else default
 
+
     def base_model_quad(self, df, objective='distance', **args):
         linearize = self.get_arg(args, 'linearize', False)
         # todo: do some kind of check to make sure df is compatible with league
@@ -227,20 +229,29 @@ class Realign:
         r = pd.DataFrame(a, columns=['team_abbr', 'conf', 'division'])
         return pd.merge(r, df[['team_abbr'] + keep], on='team_abbr')
 
+
     def print_vars(self, m, not_starting_with=[]):
         for v in m.getVars():
             if v.varName[0] not in not_starting_with:
                 print(f'{v.varName} = {v.x}')
 
+
+    def make_incumbent_result(self, df):
+        return df[['team_abbr', 'conf', 'division', 'team_lat', 'team_lng']]
+
+
     def solve(self, df, objective='distance', **args):
         self.log_solve(objective, **args)
-        m, x = self.base_model_quad(df, objective, **args)
-        t = timeit.timeit(m.optimize, number=1)
-        self.log(f'elapsed time = {t}')
-        a = self.get_assignment( df, x)
-        if self.get_arg(args, 'verbose', False):
-            self.print_vars(m, ['x', 'y'])
-        r = self.make_solve_result(a, df, objective_columns(objective))
+        if objective == 'none':
+            r = self.make_incumbent_result(df)
+        else:
+            m, x = self.base_model_quad(df, objective, **args)
+            t = timeit.timeit(m.optimize, number=1)
+            self.log(f'elapsed time = {t}')
+            a = self.get_assignment(df, x)
+            if self.get_arg(args, 'verbose', False):
+                self.print_vars(m, ['x', 'y'])
+            r = self.make_solve_result(a, df, objective_columns(objective))
         self.log(str(r))
         return r
 

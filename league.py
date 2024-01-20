@@ -32,11 +32,11 @@ def log_to_file(logfile, msg):
     with open(logfile, 'a') as f:
         f.write(f'{msg}\n')
 
-
+# todo mixing the notion of season and objective here
 nfl = League.read_csv('data/nfl.csv')
 nfl_data = { 2002 : get_locations("data/nfl-2002.csv"),
-             2023 : get_locations("data/nfl-2023.csv"),
-             'ratings-2023': get_ratings("data/nfl-2023-rating.csv")
+             2023 : get_locations("data/nfl-2023.csv")
+             #'ratings-2023': get_ratings("data/nfl-2023-rating.csv")
            }
 
 nhl = League.read_csv('data/nhl.csv')
