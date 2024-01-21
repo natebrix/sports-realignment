@@ -49,8 +49,13 @@ def score_division(div, distances):
     return sum(div.merge(div, how='cross').apply(lambda r: distance_row(r, distances), axis=1).tolist())
 
 
-def score(teams, distances, team='team_abbr', division='division'):
-    return sum([score_division(div, distances) for (name, div) in teams.groupby(['conf', 'division'])]) / 2
+def score(df, distances):
+    return sum([score_division(div, distances) for (name, div) in df.groupby(['conf', 'division'])]) / 2
+
+
+def score_competitiveness(df, rating='rating'):
+    s = sorted([sum(g[1][rating]) for g in df.groupby(['conf', 'division'])])
+    return s[-1] - s[0] # max difference
 
 class Realign:
     def __init__(self, league, model) -> None:
@@ -62,13 +67,21 @@ class Realign:
     def log(self, msg):
         log_to_file(self.logfile, msg)
 
-    def log_solve(self, objective, **args):
+    def log_solve(self, objective, algorithm, **args):
         with open(self.logfile, 'a') as f:
             f.write(f'**** SOLVE {datetime.now()}\n')
             f.write(f'objective = {objective}\n')
+            f.write(f'algorithm = {algorithm}\n')
             f.write(f'{self.league.all_divisions}\n')
             for arg in args:
                 f.write(f'{arg} = {args[arg]}\n')
+
+
+    def log_result(self, r, obj):
+        with open(self.logfile, 'a') as f:
+            f.write(f'objective = {obj}\n')
+            f.write(f'{r}\n')
+
 
     def max_swaps_constraints(self, df, m, x, num_teams):
         teams = df['team_abbr'].unique() # [row['team_abbr'] for i, row in df.iterrows()] # todo seems bad
@@ -176,7 +189,7 @@ class Realign:
         return args[key] if args.get(key) else default
 
 
-    def base_model_quad(self, df, objective='distance', **args):
+    def base_model_quad(self, df, objective, objective_data, **args):
         linearize = self.get_arg(args, 'linearize', False)
         # todo: do some kind of check to make sure df is compatible with league
         teams = [row['team_abbr'] for i, row in df.iterrows()] 
@@ -196,11 +209,9 @@ class Realign:
         y = {(t, c): m.addBinaryVar(name=f"x_{t}_{c}") for c in self.league.confs for t in teams}
 
         if objective[0] == 'd':
-            distances = make_distances(df)
-            self.distance_objective(teams, distances, m, x, y, **args)
+            self.distance_objective(teams, objective_data, m, x, y, **args)
         elif objective[0] == 'c':
-            scores = make_scores(df)
-            self.competitiveness_objective(teams, scores, m, x)
+            self.competitiveness_objective(teams, objective_data, m, x)
         else:
             raise Exception(f'unknown objective {objective}')
 
@@ -235,9 +246,10 @@ class Realign:
             if v.varName[0] not in not_starting_with:
                 print(f'{v.varName} = {v.x}')
 
+    # return pre-existing alignment
+    def solve_none(self, df, objective, objective_data):
+        return df[['team_abbr', 'conf', 'division']].values.tolist()
 
-    def make_incumbent_result(self, df):
-        return df[['team_abbr', 'conf', 'division', 'team_lat', 'team_lng']]
 
     # v: entries
     # k: number of teams in division
@@ -254,34 +266,54 @@ class Realign:
         return list(t)
 
 
-    def solve_greedy_distance(self, df):
-        distances = make_distances(df)
-        v = sorted([x for x in distances.items() if x[0][0] < x[0][1]], key=lambda x: x[1])
+    def solve_greedy(self, df, objective, objective_data):
+        if objective[0] != 'd':
+            raise Exception(f'greedy only works with distance objective')
+        v = sorted([x for x in objective_data.items() if x[0][0] < x[0][1]], key=lambda x: x[1])
         results = []
         for (c, d) in self.league.all_divisions:
-            print(f'{c} {d}')
+            #print(f'{c} {d}')
             div = self.greedy_step(v, self.league.team_count(c, d))
             for t in div:
                 results.append([t, c, d])
-            print(div)
+            #print(div)
             v = [x for x in v if x[0][0] not in div and x[0][1] not in div] # not efficient
         return results
-
-    def solve(self, df, objective='distance', algorithm='optimal', **args):
-        self.log_solve(objective, **args)
-        if algorithm == 'none':
-            r = self.make_incumbent_result(df)
-        elif algorithm == 'greedy':
-            a = self.solve_greedy_distance(df)
-            r = self.make_solve_result(a, df, objective_columns(objective))
+    
+    def get_objective(self, r, objective, objective_data):
+        if objective[0] == 'c':
+            return score_competitiveness(r)
+        elif objective[0] == 'd':
+            return score(r, objective_data)
         else:
-            m, x = self.base_model_quad(df, objective, **args)
+            raise Exception(f'unknown objective {objective}')
+
+    def solve(self, df, objective='distance', algorithm='optimal', **args):    
+        self.log_solve(objective, algorithm, **args)
+
+        if objective[0] == 'd':
+            objective_data = make_distances(df)
+        elif objective[0] == 'c':
+            objective_data = make_scores(df)
+        else:
+            raise Exception(f'unknown objective {objective}')
+
+        if algorithm == 'none':
+            #r = self.make_incumbent_result(df) # todo refactor
+            a = self.solve_none(df, objective, objective_data)
+        elif algorithm == 'greedy':
+            a = self.solve_greedy(df, objective, objective_data)
+        else:
+            # might be better to wrap all of this. It returns
+            # (objective value, r)
+            m, x = self.base_model_quad(df, objective, objective_data, **args)
             t = timeit.timeit(m.optimize, number=1)
             self.log(f'elapsed time = {t}')
             a = self.get_assignment(df, x)
             if self.get_arg(args, 'verbose', False):
                 self.print_vars(m, ['x', 'y'])
-            r = self.make_solve_result(a, df, objective_columns(objective))
-        self.log(str(r))
-        return r
+        r = self.make_solve_result(a, df, objective_columns(objective)) # todo refactor
+        obj = self.get_objective(r, objective, objective_data)
+        self.log_result(r, obj)
+        return obj, r
 
