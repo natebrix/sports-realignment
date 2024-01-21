@@ -1,33 +1,33 @@
-city,name,team_abbr,conf,division,team_lat,team_lng
-Glendale,Arizona Cardinals,ARI,NFC,WEST,33.528,-112.263
-Atlanta,Atlanta Falcons,ATL,NFC,SOUTH,33.755,-84.401
-Baltimore,Baltimore Ravens,BAL,AFC,CENTRAL,39.278,-76.622
-Orchard Park,Buffalo Bills,BUF,AFC,EAST,42.773,-78.787
-Charlotte,Carolina Panthers,CAR,NFC,SOUTH,35.225,-80.852
-Chicago,Chicago Bears,CHI,NFC,CENTRAL,41.862,-87.617
-Cincinnati,Cincinnati Bengals,CIN,AFC,CENTRAL,39.096,-84.516
-Cleveland,Cleveland Browns,CLE,AFC,CENTRAL,41.506,-81.699
-Arlington,Dallas Cowboys,DAL,NFC,EAST,32.748,-97.093
-Denver,Denver Broncos,DEN,AFC,WEST,39.743,-105.021
-Detroit,Detroit Lions,DET,NFC,CENTRAL,42.339,-83.045
-Green Bay,Green Bay Packers,GB,NFC,CENTRAL,44.501,-88.062
-Houston,Houston Texans,HOU,AFC,SOUTH,29.684,-95.410
-Indianapolis,Indianapolis Colts,IND,AFC,SOUTH,39.760,-86.163
-Jacksonville,Jacksonville Jaguars,JAX,AFC,SOUTH,30.323,-81.636
-Kansas City,Kansas City Chiefs,KC,AFC,WEST,39.049,-94.484
-Paradise,Las Vegas Raiders,LV,AFC,WEST,36.090,-115.183
-Los Angeles,Los Angeles Chargers,LAC,AFC,WEST,33.864,-118.261
-Los Angeles,Los Angeles Rams,LAR,NFC,WEST,34.014,-118.288
-Miami Gardens,Miami Dolphins,MIA,AFC,EAST,25.958,-80.238
-Minneapolis,Minnesota Vikings,MIN,NFC,CENTRAL,44.974,-93.259
-New England,New England Patriots,NE,AFC,EAST,42.090,-71.264
-New Orleans,New Orleans Saints,NO,NFC,SOUTH,29.951,-90.081
-East Rutherford,New York Giants,NYG,NFC,EAST,40.813,-74.074
-East Rutherford,New York Jets,NYJ,AFC,EAST,40.813,-74.074
-Philadelphia,Philadelphia Eagles,PHI,NFC,EAST,39.901,-75.167
-Pittsburgh,Pittsburgh Steelers,PIT,AFC,CENTRAL,40.446,-80.015
-Santa Clara,San Francisco 49ers,SF,NFC,WEST,37.403,-121.970
-Seattle,Seattle Seahawks,SEA,NFC,WEST,47.595,-122.331
-Tampa Bay,Tampa Bay Buccaneers,TB,NFC,SOUTH,27.975,-82.503
-Nashville,Tennessee Titans,TEN,AFC,SOUTH,36.166,-86.771
-Landover,Washington Football Team,WAS,NFC,EAST,38.907,-76.864
+city,name,team_abbr,conf,division,team_lat,team_lng,rating
+Glendale,Arizona Cardinals,ARI,NFC,WEST,33.528,-112.263,15.7
+Atlanta,Atlanta Falcons,ATL,NFC,SOUTH,33.755,-84.401,16.02
+Baltimore,Baltimore Ravens,BAL,AFC,CENTRAL,39.278,-76.622,21.58
+Orchard Park,Buffalo Bills,BUF,AFC,EAST,42.773,-78.787,26.13
+Charlotte,Carolina Panthers,CAR,NFC,SOUTH,35.225,-80.852,17.65
+Chicago,Chicago Bears,CHI,NFC,CENTRAL,41.862,-87.617,11.67
+Cincinnati,Cincinnati Bengals,CIN,AFC,CENTRAL,39.096,-84.516,26.89
+Cleveland,Cleveland Browns,CLE,AFC,CENTRAL,41.506,-81.699,19.58
+Arlington,Dallas Cowboys,DAL,NFC,EAST,32.748,-97.093,25.07
+Denver,Denver Broncos,DEN,AFC,WEST,39.743,-105.021,18.83
+Detroit,Detroit Lions,DET,NFC,CENTRAL,42.339,-83.045,20.24
+Green Bay,Green Bay Packers,GB,NFC,CENTRAL,44.501,-88.062,21.72
+Houston,Houston Texans,HOU,AFC,SOUTH,29.684,-95.41,13.2
+Indianapolis,Indianapolis Colts,IND,AFC,SOUTH,39.76,-86.163,15.25
+Jacksonville,Jacksonville Jaguars,JAX,AFC,SOUTH,30.323,-81.636,21.09
+Kansas City,Kansas City Chiefs,KC,AFC,WEST,39.049,-94.484,27.14
+Los Angeles,Los Angeles Chargers,LAC,AFC,WEST,33.864,-118.261,22.36
+Los Angeles,Los Angeles Rams,LAR,NFC,WEST,34.014,-118.288,17.91
+Paradise,Las Vegas Raiders,LV,AFC,WEST,36.09,-115.183,19.93
+Miami Gardens,Miami Dolphins,MIA,AFC,EAST,25.958,-80.238,20.91
+Minneapolis,Minnesota Vikings,MIN,NFC,CENTRAL,44.974,-93.259,19.49
+New England,New England Patriots,NE,AFC,EAST,42.09,-71.264,20.86
+New Orleans,New Orleans Saints,NO,NFC,SOUTH,29.951,-90.081,18.93
+East Rutherford,New York Giants,NYG,NFC,EAST,40.813,-74.074,18.34
+East Rutherford,New York Jets,NYJ,AFC,EAST,40.813,-74.074,17.65
+Philadelphia,Philadelphia Eagles,PHI,NFC,EAST,39.901,-75.167,25.77
+Pittsburgh,Pittsburgh Steelers,PIT,AFC,CENTRAL,40.446,-80.015,20.67
+Seattle,Seattle Seahawks,SEA,NFC,WEST,47.595,-122.331,17.66
+Santa Clara,San Francisco 49ers,SF,NFC,WEST,37.403,-121.97,26.39
+Tampa Bay,Tampa Bay Buccaneers,TB,NFC,SOUTH,27.975,-82.503,18.68
+Nashville,Tennessee Titans,TEN,AFC,SOUTH,36.166,-86.771,18.86
+Landover,Washington Commanders,WAS,NFC,EAST,38.907,-76.864,17.83
