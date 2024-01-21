@@ -12,6 +12,10 @@ class ScipModel(scip.Model):
     def addContinuousVar(self, name, lb=float('-inf'), ub=float('inf')):
         return self.addVar(vtype="C", name=name, lb=lb, ub=ub) 
 
+    def setLogFile(self, filename):
+        #self.setParam(gp.GRB.Param.LogFile, filename)
+        pass # todo
+
     quicksum = scip.quicksum
     minimize = "minimize"
 
