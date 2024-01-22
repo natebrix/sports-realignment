@@ -1,5 +1,6 @@
 from math import radians, cos, sin, asin, sqrt
 import pandas as pd
+import numpy as np
 from datetime import datetime
 import timeit
 #tom = pd.read_csv('data/tom.csv')
@@ -189,7 +190,7 @@ class Realign:
         return args[key] if args.get(key) else default
 
 
-    def base_model_quad(self, df, objective, objective_data, **args):
+    def base_model_bilinear(self, df, objective, objective_data, **args):
         linearize = self.get_arg(args, 'linearize', False)
         # todo: do some kind of check to make sure df is compatible with league
         teams = [row['team_abbr'] for i, row in df.iterrows()] 
@@ -253,33 +254,47 @@ class Realign:
 
     # v: entries
     # k: number of teams in division
-    def greedy_step(self, v, team_count):
+    def greedy_dfs_step(self, v, team_count):
         # how to honor constraints...
         # here we can fill in any fixed ones.
+        # we can also remove any that are forbidden.
+        # max swaps seems hard
         f = v.pop(0)
         t = set(f[0])
         while len(t) < team_count:
             # print(t, len(v))
             i = next(i for i, x in enumerate(v) if (x[0][0] in t) or (x[0][1] in t))
             f = v.pop(i)
-            t |= set(f[0])
+            t |= set(f[0]) 
         return list(t)
 
+    def remove_all_in_set(self, v, s):
+        return [x for x in v if x[0][0] not in s and x[0][1] not in s] # not efficient
 
-    def solve_greedy(self, df, objective, objective_data):
+
+    def get_team_heap(self, objective_data):
+        return sorted([x for x in objective_data.items() if x[0][0] < x[0][1]], key=lambda x: x[1])
+
+
+    # Find a greedy solution in "depth first" order.  That is, fill divisions sequentially.
+    def solve_greedy_dfs(self, df, objective, objective_data):
         if objective[0] != 'd':
             raise Exception(f'greedy only works with distance objective')
-        v = sorted([x for x in objective_data.items() if x[0][0] < x[0][1]], key=lambda x: x[1])
+        # todo: how to do this with competitiveness?
+        # --> the greedy choice should be added to the division with the smallest total score
+        v = self.get_team_heap(objective_data)
         results = []
         for (c, d) in self.league.all_divisions:
             #print(f'{c} {d}')
-            div = self.greedy_step(v, self.league.team_count(c, d))
+            # todo filter v for constraints
+            div = self.greedy_dfs_step(v, self.league.team_count(c, d))
             for t in div:
                 results.append([t, c, d])
             #print(div)
-            v = [x for x in v if x[0][0] not in div and x[0][1] not in div] # not efficient
+            v = self.remove_all_in_set(v, div)
         return results
-    
+
+
     def get_objective(self, r, objective, objective_data):
         if objective[0] == 'c':
             return score_competitiveness(r)
@@ -287,6 +302,14 @@ class Realign:
             return score(r, objective_data)
         else:
             raise Exception(f'unknown objective {objective}')
+
+    def solve_bilinear(self, df, objective, objective_data, **args):
+        m, x = self.base_model_bilinear(df, objective, objective_data, **args)
+        t = timeit.timeit(m.optimize, number=1)
+        self.log(f'elapsed solve time = {t}')
+        a = self.get_assignment(df, x)
+        if self.get_arg(args, 'verbose', False):
+            self.print_vars(m, ['x', 'y'])
 
     def solve(self, df, objective='distance', algorithm='optimal', **args):    
         self.log_solve(objective, algorithm, **args)
@@ -299,20 +322,15 @@ class Realign:
             raise Exception(f'unknown objective {objective}')
 
         if algorithm == 'none':
-            #r = self.make_incumbent_result(df) # todo refactor
             a = self.solve_none(df, objective, objective_data)
-        elif algorithm == 'greedy':
-            a = self.solve_greedy(df, objective, objective_data)
+        elif algorithm == 'greedy' or algorithm == 'greedyDfs':
+            a = self.solve_greedy_dfs(df, objective, objective_data)
+        elif algorithm == 'optimal':
+            a = self.solve_bilinear(df, objective, objective_data, **args)
         else:
-            # might be better to wrap all of this. It returns
-            # (objective value, r)
-            m, x = self.base_model_quad(df, objective, objective_data, **args)
-            t = timeit.timeit(m.optimize, number=1)
-            self.log(f'elapsed time = {t}')
-            a = self.get_assignment(df, x)
-            if self.get_arg(args, 'verbose', False):
-                self.print_vars(m, ['x', 'y'])
-        r = self.make_solve_result(a, df, objective_columns(objective)) # todo refactor
+            raise Exception(f'unknown algorithm {algorithm}')
+
+        r = self.make_solve_result(a, df, objective_columns(objective)) 
         obj = self.get_objective(r, objective, objective_data)
         self.log_result(r, obj)
         return obj, r
