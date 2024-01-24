@@ -3,7 +3,9 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 import timeit
-#tom = pd.read_csv('data/tom.csv')
+
+# todo record running time
+# todo make linearized version easy to call
 
 # stackoverflow
 # Computes the haversine distance between two points.
@@ -310,6 +312,7 @@ class Realign:
         a = self.get_assignment(df, x)
         if self.get_arg(args, 'verbose', False):
             self.print_vars(m, ['x', 'y'])
+        return a
 
     def solve(self, df, objective='distance', algorithm='optimal', **args):    
         self.log_solve(objective, algorithm, **args)
