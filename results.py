@@ -1,6 +1,11 @@
-import pandas as pd
 from datetime import datetime
 import timeit
+import pandas as pd
+
+# mahalanobis - TV and distance
+# plot times by size
+# grbtune
+# get new solver classes in here and try scip
 
 def run(objectives, algorithms, plot=False):
     results = []
