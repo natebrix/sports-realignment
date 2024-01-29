@@ -6,8 +6,8 @@ class GurobiModel(gp.Model):
     quicksum = gp.quicksum
     minimize = gp.GRB.MINIMIZE
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)  
         self.params.NonConvex = 0
 
     def setLogFile(self, filename):
@@ -21,3 +21,9 @@ class GurobiModel(gp.Model):
 
     def setNonconvex(self, value):
         self.params.NonConvex = 2 if value else 0
+
+    def setLazy(self, constraint, value):
+        constraint.setAttr(gp.GRB.Attr.Lazy, value)
+
+    def getVal(self, var):
+        return var.X

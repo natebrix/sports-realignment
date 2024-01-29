@@ -4,6 +4,12 @@ import numpy as np
 from datetime import datetime
 import timeit
 
+# Method  2
+# Heuristics  0
+# Cuts  1
+# CutPasses  5
+# Presolve  2
+
 # todo record running time
 # todo make linearized version easy to call
 
@@ -65,14 +71,16 @@ class Realign:
         self.league = league
         self.model = model
         suffix = datetime.now().strftime("%Y_%m_%d")
-        self.logfile = f'realign_{suffix}.log'
+        self.logfile = f'out/realign_{suffix}.log'
 
     def log(self, msg):
         log_to_file(self.logfile, msg)
 
+
     def log_solve(self, objective, algorithm, **args):
         with open(self.logfile, 'a') as f:
             f.write(f'**** SOLVE {datetime.now()}\n')
+            f.write(f'solver = {self.model.__name__}\n')
             f.write(f'objective = {objective}\n')
             f.write(f'algorithm = {algorithm}\n')
             f.write(f'{self.league.all_divisions}\n')
@@ -83,7 +91,7 @@ class Realign:
     def log_result(self, r, obj):
         with open(self.logfile, 'a') as f:
             f.write(f'objective = {obj}\n')
-            f.write(f'{r}\n')
+            f.write(f'{r.to_csv(index=False)}\n')
 
 
     def max_swaps_constraints(self, df, m, x, num_teams):
@@ -230,13 +238,13 @@ class Realign:
         return m, x
 
 
-    def in_division_x(self, x):
-        return x.x > 0.99
+    def in_division_x(self, m, x):
+        return m.getVal(x) > 0.99
 
 
-    def get_assignment(self, df, x):
+    def get_assignment(self, df, m, x):
         abbrs = [row['team_abbr'] for i, row in df.iterrows()]
-        return [(a, c, d) for (c, d) in self.league.all_divisions for a in abbrs if self.in_division_x(x[a, c, d])]
+        return [(a, c, d) for (c, d) in self.league.all_divisions for a in abbrs if self.in_division_x(m, x[a, c, d])]
 
 
     def make_solve_result(self, a, df, keep):
@@ -309,7 +317,7 @@ class Realign:
         m, x = self.base_model_bilinear(df, objective, objective_data, **args)
         t = timeit.timeit(m.optimize, number=1)
         self.log(f'elapsed solve time = {t}')
-        a = self.get_assignment(df, x)
+        a = self.get_assignment(df, m, x)
         if self.get_arg(args, 'verbose', False):
             self.print_vars(m, ['x', 'y'])
         return a
