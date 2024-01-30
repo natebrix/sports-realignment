@@ -1,0 +1,17 @@
+city,name,team_abbr,conf,division,team_lat,team_lng,team
+Tampa,Tampa Bay Lightning,TBL,EAST,ATLANTIC,27.9427,-82.4518,0
+Sunrise,Florida Panthers,FLA,EAST,ATLANTIC,26.1585,-80.3255,1
+Montreal,Montreal Canadiens,MTL,EAST,ATLANTIC,45.4961,-73.5693,4
+Ottawa,Ottawa Senators,OTT,EAST,ATLANTIC,45.2969,-75.9268,7
+Washington,Washington Capitals,WSH,EAST,METRO,38.8982,-77.0209,8
+Buffalo,Buffalo Sabres,BUF,EAST,ATLANTIC,42.8751,-78.8765,13
+Detroit,Detroit Red Wings,DET,EAST,ATLANTIC,42.3411,-83.0553,14
+New York City,New York Rangers,NYR,EAST,METRO,40.7505,-73.9934,15
+Columbus,Columbus Blue Jackets,CBJ,EAST,METRO,39.9692,-83.006,17
+Raleigh,Carolina Hurricanes,CAR,EAST,METRO,35.8033,-78.7218,18
+Pittsburgh,Pittsburgh Penguins,PIT,EAST,METRO,40.4393,-79.9896,19
+Newark,New Jersey Devils,NJD,EAST,METRO,40.7335,-74.1711,20
+Toronto,Toronto Maple Leafs,TOR,EAST,ATLANTIC,43.6435,-79.3791,24
+Boston,Boston Bruins,BOS,EAST,ATLANTIC,42.3662,-71.0621,26
+Elmont,New York Islanders,NYI,EAST,METRO,40.7118,-73.726,28
+Philadelphia,Philadelphia Flyers,PHI,EAST,METRO,39.9012,-75.172,30

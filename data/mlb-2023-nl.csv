@@ -1,0 +1,16 @@
+field,name,team_abbr,conf,division,team_lat,team_lng,team
+Chase Field,Arizona Diamondbacks,ARI,NL,WEST,33.44527778,-112.0669444,0
+Turner Field,Atlanta Braves,ATL,NL,EAST,33.73527778,-84.38944444,1
+Wrigley Field,Chicago Cubs,CHC,NL,CENTRAL,41.94833333,-87.65555556,4
+Great American Ball Park,Cincinnati Reds,CIN,NL,CENTRAL,39.0975,-84.50666667,6
+Coors Field,Colorado Rockies,COL,NL,WEST,39.75611111,-104.9941667,8
+Dodger Stadium,Los Angeles Dodgers,LAD,NL,WEST,34.07361111,-118.24,13
+Marlins Park,Miami Marlins,MIA,NL,EAST,25.77805556,-80.21972222,14
+Miller Park,Milwaukee Brewers,MIL,NL,CENTRAL,43.02833333,-87.97111111,15
+Citi Field,New York Mets,NYM,NL,EAST,40.75694444,-73.84583333,17
+Citizens Bank Park,Philadelphia Phillies,PHI,NL,EAST,39.90583333,-75.16638889,20
+PNC Park,Pittsburgh Pirates,PIT,NL,CENTRAL,40.44694444,-80.00583333,21
+Petco Park,San Diego Padres,SDP,NL,WEST,32.70729983,-117.1565998,22
+AT&T Park,San Francisco Giants,SFG,NL,WEST,37.77833333,-122.3894444,24
+Busch Stadium,St. Louis Cardinals,STL,NL,CENTRAL,38.6225,-90.19305556,25
+Nationals Park,Washington Nationals,WAS,NL,EAST,38.87277778,-77.0075,29

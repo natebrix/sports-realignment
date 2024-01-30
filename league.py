@@ -17,13 +17,13 @@ class League:
         df = pd.read_csv(filename)
         return League(df)
 
-def get_locations(teams):
+def read_season_data(teams):
     df = pd.read_csv(teams)
     df['team'] = df.index
     return df
 
 
-def get_ratings(ratings):
+def read_ratings_data(ratings):
     df = pd.read_csv(ratings)
     return df
 
@@ -32,27 +32,49 @@ def log_to_file(logfile, msg):
     with open(logfile, 'a') as f:
         f.write(f'{msg}\n')
 
-# todo mixing the notion of season and objective here
 nfl = League.read_csv('data/nfl.csv')
-nfl_data = { 2002 : get_locations("data/nfl-2002.csv"),
-             2023 : get_locations("data/nfl-2023.csv")
+nfl_data = { 2002 : read_season_data("data/nfl-2002.csv"),
+             2023 : read_season_data("data/nfl-2023.csv"),
+           }
+
+nfl_conf = League.read_csv('data/nfl-conf.csv')
+nfl_conf_data = { 
+             '2023-nfc' : read_season_data("data/nfl-2023-nfc.csv"),
+             '2023-afc' : read_season_data("data/nfl-2023-afc.csv"),
            }
 
 nhl = League.read_csv('data/nhl.csv')
 nhl_data = { 
-             2023 : get_locations("data/nhl-2023.csv")
+             2023 : read_season_data("data/nhl-2023.csv")
+           }
+
+nhl_conf = League.read_csv('data/nhl-conf.csv')
+nhl_conf_data = { 
+             '2023-east' : read_season_data("data/nhl-2023-east.csv"),
+             '2023-west' : read_season_data("data/nhl-2023-west.csv"),
            }
 
 mlb = League.read_csv('data/mlb.csv')
 mlb_data = { 
-             2023 : get_locations("data/mlb-2023.csv")
+             2023 : read_season_data("data/mlb-2023.csv")
+           }
+
+mlb_conf = League.read_csv('data/mlb-conf.csv')
+mlb_conf_data = { 
+             '2023-al' : read_season_data("data/mlb-2023-al.csv"),
+             '2023-nl' : read_season_data("data/mlb-2023-nl.csv"),
            }
 
 nba = League.read_csv('data/nba.csv')
 nba_data = { 
-             2023 : get_locations("data/nba-2023.csv")
+             2023 : read_season_data("data/nba-2023.csv")
            }
 
+nba_conf = League.read_csv('data/nba-conf.csv')
+nba_conf_data = { 
+             '2023-east' : read_season_data("data/nba-2023-east.csv"),
+             '2023-west' : read_season_data("data/nba-2023-west.csv"),
+           }
 
 class LeagueInfo:
     def __init__(self, name, league, seasons):
@@ -60,9 +82,13 @@ class LeagueInfo:
         self.league = league
         self.seasons = seasons
 
-leagues = [ 
-    LeagueInfo('nfl', nfl, nfl_data),
-    LeagueInfo('mlb', mlb, mlb_data),
-    LeagueInfo('nba', nba, nba_data),
-    LeagueInfo('nhl', nhl, nhl_data)
-]
+leagues = {
+    'nfl' : LeagueInfo('nfl', nfl, nfl_data),
+    'nfl-conf' : LeagueInfo('nfl-conf', nfl_conf, nfl_conf_data),
+    'mlb' : LeagueInfo('mlb', mlb, mlb_data),
+    'mlb-conf' : LeagueInfo('mlb-conf', mlb_conf, mlb_conf_data),
+    'nba' : LeagueInfo('nba', nba, nba_data),
+    'nba-conf' : LeagueInfo('nba-conf', nba_conf, nba_conf_data),
+    'nhl' : LeagueInfo('nhl', nhl, nhl_data),
+    'nhl-conf' : LeagueInfo('nhl-conf', nhl_conf, nhl_conf_data)
+}

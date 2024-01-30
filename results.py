@@ -4,8 +4,16 @@ import pandas as pd
 
 # mahalanobis - TV and distance
 # plot times by size
-# grbtune
-# get new solver classes in here and try scip
+
+def write_by_conference(league, season):
+    df = league.seasons[season]
+    g = df.groupby('conf')
+    for conf in g.groups:
+        df_c = g.get_group(conf)
+        filename = f'{league.name.lower()}-{season}-{conf.lower()}.csv' 
+        print(f"Writing {filename}")
+        df_c.to_csv(f'data/{filename}', index=False)
+
 
 def run(objectives, algorithms, plot=False):
     results = []
