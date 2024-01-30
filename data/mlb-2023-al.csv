@@ -1,16 +1,16 @@
 field,name,team_abbr,conf,division,team_lat,team_lng,team
-Oriole Park at Camden Yards,Baltimore Orioles,BAL,AL,EAST,39.28388889,-76.62166667,2
-Fenway Park,Boston Red Sox,BOS,AL,EAST,42.34638889,-71.0975,3
-U.S. Cellular Field,Chicago White Sox,CHW,AL,CENTRAL,41.83,-87.63388889,5
-Progressive Field,Cleveland Guardians,CLE,AL,CENTRAL,41.49583333,-81.68527778,7
-Comerica Park,Detroit Tigers,DET,AL,CENTRAL,42.33916667,-83.04861111,9
-Minute Maid Park,Houston Astros,HOU,AL,WEST,29.75694444,-95.35555556,10
-Kauffman Stadium,Kansas City Royals,KCR,AL,CENTRAL,39.05138889,-94.48055556,11
-Angel Stadium of Anaheim,Los Angeles Angels of Anaheim,LAA,AL,WEST,33.80027778,-117.8827778,12
-Target Field,Minnesota Twins,MIN,AL,CENTRAL,44.98166667,-93.27833333,16
-Yankee Stadium,New York Yankees,NYY,AL,EAST,40.82916667,-73.92638889,18
-O.co Coliseum,Oakland Athletics,OAK,AL,WEST,37.75166667,-122.2005556,19
-Safeco Field,Seattle Mariners,SEA,AL,WEST,47.59138889,-122.3325,23
-Tropicana Field,Tampa Bay Rays,TBR,AL,EAST,27.76833333,-82.65333333,26
-Rangers Ballpark in Arlington,Texas Rangers,TEX,AL,WEST,32.75138889,-97.08277778,27
-Rogers Centre,Toronto Blue Jays,TOR,AL,EAST,43.64138889,-79.38916667,28
+Oriole Park at Camden Yards,Baltimore Orioles,BAL,_,EAST,39.28388889,-76.62166667,2
+Fenway Park,Boston Red Sox,BOS,_,EAST,42.34638889,-71.0975,3
+U.S. Cellular Field,Chicago White Sox,CHW,_,CENTRAL,41.83,-87.63388889,5
+Progressive Field,Cleveland Guardians,CLE,_,CENTRAL,41.49583333,-81.68527778,7
+Comerica Park,Detroit Tigers,DET,_,CENTRAL,42.33916667,-83.04861111,9
+Minute Maid Park,Houston Astros,HOU,_,WEST,29.75694444,-95.35555556,10
+Kauffman Stadium,Kansas City Royals,KCR,_,CENTRAL,39.05138889,-94.48055556,11
+Angel Stadium of Anaheim,Los Angeles Angels of Anaheim,LAA,_,WEST,33.80027778,-117.8827778,12
+Target Field,Minnesota Twins,MIN,_,CENTRAL,44.98166667,-93.27833333,16
+Yankee Stadium,New York Yankees,NYY,_,EAST,40.82916667,-73.92638889,18
+O.co Coliseum,Oakland Athletics,OAK,_,WEST,37.75166667,-122.2005556,19
+Safeco Field,Seattle Mariners,SEA,_,WEST,47.59138889,-122.3325,23
+Tropicana Field,Tampa Bay Rays,TBR,_,EAST,27.76833333,-82.65333333,26
+Rangers Ballpark in Arlington,Texas Rangers,TEX,_,WEST,32.75138889,-97.08277778,27
+Rogers Centre,Toronto Blue Jays,TOR,_,EAST,43.64138889,-79.38916667,28

@@ -1,0 +1,17 @@
+city,name,team_abbr,conf,division,team_lat,team_lng,rating,team
+Glendale,Arizona Cardinals,ARI,_,WEST,33.528,-112.263,15.7,0
+Atlanta,Atlanta Falcons,ATL,_,SOUTH,33.755,-84.401,16.02,1
+Charlotte,Carolina Panthers,CAR,_,SOUTH,35.225,-80.852,17.65,4
+Chicago,Chicago Bears,CHI,_,CENTRAL,41.862,-87.617,11.67,5
+Arlington,Dallas Cowboys,DAL,_,EAST,32.748,-97.093,25.07,8
+Detroit,Detroit Lions,DET,_,CENTRAL,42.339,-83.045,20.24,10
+Green Bay,Green Bay Packers,GB,_,CENTRAL,44.501,-88.062,21.72,11
+Los Angeles,Los Angeles Rams,LAR,_,WEST,34.014,-118.288,17.91,17
+Minneapolis,Minnesota Vikings,MIN,_,CENTRAL,44.974,-93.259,19.49,20
+New Orleans,New Orleans Saints,NO,_,SOUTH,29.951,-90.081,18.93,22
+East Rutherford,New York Giants,NYG,_,EAST,40.813,-74.074,18.34,23
+Philadelphia,Philadelphia Eagles,PHI,_,EAST,39.901,-75.167,25.77,25
+Seattle,Seattle Seahawks,SEA,_,WEST,47.595,-122.331,17.66,27
+Santa Clara,San Francisco 49ers,SF,_,WEST,37.403,-121.97,26.39,28
+Tampa Bay,Tampa Bay Buccaneers,TB,_,SOUTH,27.975,-82.503,18.68,29
+Landover,Washington Commanders,WAS,_,EAST,38.907,-76.864,17.83,31

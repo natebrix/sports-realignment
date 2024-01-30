@@ -1,16 +1,16 @@
 field,name,team_abbr,conf,division,team_lat,team_lng,team
-Chase Center,Golden State Warriors,GSW,Western,Pacific,37.768,-122.3879,15
-Staples Center,Los Angeles Clippers,LAC,Western,Pacific,34.043,-118.2672,16
-Staples Center,Los Angeles Lakers,LAL,Western,Pacific,34.043,-118.2672,17
-Footprint Center,Phoenix Suns,PHX,Western,Pacific,33.4457,-112.0712,18
-Golden 1 Center,Sacramento Kings,SAC,Western,Pacific,38.5802,-121.4997,19
-Ball Arena,Denver Nuggets,DEN,Western,Northwest,39.7487,-105.0077,20
-Target Center,Minnesota Timberwolves,MIN,Western,Northwest,44.9795,-93.276,21
-Paycom Center,Oklahoma City Thunder,OKC,Western,Northwest,35.4634,-97.5151,22
-Moda Center,Portland Trail Blazers,POR,Western,Northwest,45.5316,-122.6668,23
-Vivint Arena,Utah Jazz,UTA,Western,Northwest,40.7683,-111.9011,24
-American Airlines Center,Dallas Mavericks,DAL,Western,Southwest,32.7905,-96.8103,25
-Toyota Center,Houston Rockets,HOU,Western,Southwest,29.7508,-95.3621,26
-FedExForum,Memphis Grizzlies,MEM,Western,Southwest,35.1382,-90.0506,27
-AT&T Center,San Antonio Spurs,SAS,Western,Southwest,29.4269,-98.4375,28
-Smoothie King Center,New Orleans Pelicans,NOP,Western,Southwest,29.949,-90.0812,29
+Chase Center,Golden State Warriors,GSW,_,Div_3,37.768,-122.3879,15
+Staples Center,Los Angeles Clippers,LAC,_,Div_3,34.043,-118.2672,16
+Staples Center,Los Angeles Lakers,LAL,_,Div_3,34.043,-118.2672,17
+Footprint Center,Phoenix Suns,PHX,_,Div_3,33.4457,-112.0712,18
+Golden 1 Center,Sacramento Kings,SAC,_,Div_3,38.5802,-121.4997,19
+Ball Arena,Denver Nuggets,DEN,_,Div_2,39.7487,-105.0077,20
+Target Center,Minnesota Timberwolves,MIN,_,Div_2,44.9795,-93.276,21
+Paycom Center,Oklahoma City Thunder,OKC,_,Div_2,35.4634,-97.5151,22
+Moda Center,Portland Trail Blazers,POR,_,Div_2,45.5316,-122.6668,23
+Vivint Arena,Utah Jazz,UTA,_,Div_2,40.7683,-111.9011,24
+American Airlines Center,Dallas Mavericks,DAL,_,Div_1,32.7905,-96.8103,25
+Toyota Center,Houston Rockets,HOU,_,Div_1,29.7508,-95.3621,26
+FedExForum,Memphis Grizzlies,MEM,_,Div_1,35.1382,-90.0506,27
+AT&T Center,San Antonio Spurs,SAS,_,Div_1,29.4269,-98.4375,28
+Smoothie King Center,New Orleans Pelicans,NOP,_,Div_1,29.949,-90.0812,29

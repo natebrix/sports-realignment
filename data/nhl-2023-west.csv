@@ -1,17 +1,17 @@
 city,name,team_abbr,conf,division,team_lat,team_lng,team
-Dallas,Dallas Stars,DAL,WEST,CENTRAL,32.7904,-96.8103,2
-Denver,Colorado Avalanche,COL,WEST,CENTRAL,39.7487,-105.0076,3
-Nashville,Nashville Predators,NSH,WEST,CENTRAL,36.1592,-86.7785,5
-Winnipeg,Winnipeg Jets,WPG,WEST,CENTRAL,49.8927,-97.1435,6
-Seattle,Seattle Kraken,SEA,WEST,PACIFIC,47.6221,-122.3541,9
-Los Angeles,Los Angeles Kings,LAK,WEST,PACIFIC,34.043,-118.2673,10
-St. Louis,St. Louis Blues,STL,WEST,CENTRAL,38.6268,-90.2027,11
-Anaheim,Anaheim Ducks,ANA,WEST,PACIFIC,33.8078,-117.8765,12
-Tempe,Arizona Coyotes,ARI,WEST,CENTRAL,33.4256,-111.9287,16
-Vancouver,Vancouver Canucks,VAN,WEST,PACIFIC,49.2778,-123.1088,21
-Edmonton,Edmonton Oilers,EDM,WEST,PACIFIC,53.547,-113.4978,22
-San Jose,San Jose Sharks,SJS,WEST,PACIFIC,37.333,-121.902,23
-Calgary,Calgary Flames,CGY,WEST,PACIFIC,51.0374,-114.0519,25
-Paradise,Vegas Golden Knights,VGK,WEST,PACIFIC,36.1028,-115.1782,27
-Chicago,Chicago Blackhawks,CHI,WEST,CENTRAL,41.8807,-87.6742,29
-Saint Paul,Minnesota Wild,MIN,WEST,CENTRAL,44.9448,-93.1011,31
+Dallas,Dallas Stars,DAL,_,CENTRAL,32.7904,-96.8103,2
+Denver,Colorado Avalanche,COL,_,CENTRAL,39.7487,-105.0076,3
+Nashville,Nashville Predators,NSH,_,CENTRAL,36.1592,-86.7785,5
+Winnipeg,Winnipeg Jets,WPG,_,CENTRAL,49.8927,-97.1435,6
+Seattle,Seattle Kraken,SEA,_,PACIFIC,47.6221,-122.3541,9
+Los Angeles,Los Angeles Kings,LAK,_,PACIFIC,34.043,-118.2673,10
+St. Louis,St. Louis Blues,STL,_,CENTRAL,38.6268,-90.2027,11
+Anaheim,Anaheim Ducks,ANA,_,PACIFIC,33.8078,-117.8765,12
+Tempe,Arizona Coyotes,ARI,_,CENTRAL,33.4256,-111.9287,16
+Vancouver,Vancouver Canucks,VAN,_,PACIFIC,49.2778,-123.1088,21
+Edmonton,Edmonton Oilers,EDM,_,PACIFIC,53.547,-113.4978,22
+San Jose,San Jose Sharks,SJS,_,PACIFIC,37.333,-121.902,23
+Calgary,Calgary Flames,CGY,_,PACIFIC,51.0374,-114.0519,25
+Paradise,Vegas Golden Knights,VGK,_,PACIFIC,36.1028,-115.1782,27
+Chicago,Chicago Blackhawks,CHI,_,CENTRAL,41.8807,-87.6742,29
+Saint Paul,Minnesota Wild,MIN,_,CENTRAL,44.9448,-93.1011,31
