@@ -6,6 +6,10 @@ class ScipModel(scip.Model):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)  
         self.nonconvex = False
+        self.nonconvex_expr = None
+
+    def isNonconvex(self):
+        return self.nonconvex
 
     def addBinaryVar(self, name):
         return self.addVar(vtype="B", name=name) 
@@ -38,6 +42,7 @@ class ScipModel(scip.Model):
             self.cost = self.addVar(vtype="C", name="__cost")
             super().setObjective(self.cost, sense)
             self.addCons(self.cost == expr)
+            self.nonconvex_expr = expr
         else:
             super().setObjective(expr, sense)
 
@@ -50,4 +55,20 @@ class ScipModel(scip.Model):
 
     def write(self, filename):
         self.writeProblem(filename)
+
+    def update(self):
+        pass
+
+    def warm(self, s, v):
+        return self.getSolVal(s, v) > 0.99
+
+    def both_warm(self, s, vs):
+        return False if len(vs) != 2 else self.warm(s, vs[0]) and self.warm(s, vs[1])
+
+    def setNonconvexSolVal(self, s):
+        if self.nonconvex:
+            # these are the terms in the dummy expression we added. Let's fish out the variables and get their values.
+            ts = self.nonconvex_expr.terms
+            cost_val = sum([ts[xt] for xt in ts.keys() if self.both_warm(s, xt.vartuple)])
+            self.setSolVal(s, self.cost, cost_val)
 

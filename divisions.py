@@ -10,9 +10,6 @@ import timeit
 # CutPasses  5
 # Presolve  2
 
-# todo record running time
-# todo make linearized version easy to call
-
 # stackoverflow
 # Computes the haversine distance between two points.
 def haversine(lat1, lon1, lat2, lon2):
@@ -165,11 +162,14 @@ class Realign:
         # we want an indicator variable for each team that is 1 if the team changes divisions
         u = {t: m.addBinaryVar(name=f"u_{t}") for t in teams}
         # df.loc[i, 'conf'], df.loc[i, 'division']]
+        # todo df?!?!
         m.addConstr(m.quicksum(x[t, df.loc[i, 'conf'], df.loc[i, 'division']] for i, t in enumerate(teams)) >= fixed_teams) 
 
 
     def distance_objective(self, teams, distances, m, x, y, **args):
         linearize = self.get_arg(args, 'linearize', False)
+        if linearize:
+            print('linearize')
         dummy = self.get_arg(args, 'dummy', False)
 
         if linearize:
@@ -199,6 +199,29 @@ class Realign:
     def get_arg(self, args, key, default):
         return args[key] if args.get(key) else default
 
+    def bilinear_start(self, df, m, x, y):
+        print(df)
+        solution = m.createSol()
+        m.update() 
+
+        for x_tcd in x.values():
+            m.setSolVal(solution, x_tcd, 0) 
+
+        for y_tc in y.values():
+            m.setSolVal(solution, y_tc, 0) 
+
+        for (c, d), div in df.groupby(['conf', 'division']):
+            for i, row in div.iterrows():
+                t = row['team_abbr']
+                m.setSolVal(solution, x[t, c, d], 1) 
+                m.setSolVal(solution, y[t, c], 1) 
+        
+        # Certain solvers cannot handle nonconvex objectives directly. In such a case, the solver wrapper
+        # internally adds a dummy variable to the model and sets the objective to minimize this variable.
+        # Therefore this dummy variables must be warmstarted also.
+        if m.isNonconvex():
+            m.setNonconvexSolVal(solution)
+        m.addSol(solution)
 
     def base_model_bilinear(self, df, objective, objective_data, **args):
         linearize = self.get_arg(args, 'linearize', False)
@@ -207,8 +230,20 @@ class Realign:
         num_teams = df.shape[0]
 
         m = self.model()
+
+        # todo use solver_params. todo make solver agnostic - not sure how to do this since this is inherently solver specific
+        # m.setParam('Method', 2)       # 0 - primal simplex, 1 - dual simplex, 2 - barrier, etc.
+        # m.setParam('Heuristics', 0.0) # Off - 0.0, Default - 0.05
+        # m.setParam('Cuts', 1)         # -1 - automatic, 0 - off, 1 - conservative, 2 - aggressive
+        # m.setParam('CutPasses', 5)    # Maximum number of cutting plane passes (-1 for no limit)
+        # m.setParam('Presolve', 2)     # -1 - automatic, 0 - off, 1 - conservative, 2 - aggressive
+        #m.setParam("lp/resolvealgorithm", "b") 
+        #m.setParam("separating/maxrounds", 1)
+        #m.setParam("separating/maxroundsroot", 5)
+        #m.setParam("presolving/maxrestarts", 2)
+
         m.setNonconvex(not linearize)
-        m.setLogFile(self.logfile) # todo write all the other data to this too
+        m.setLogFile(self.logfile) 
 
         # I could introduce a variable w_tu which is 1 iff t and u are in the same division.
         # then x_tcd + x_ucd - 1 <= w_tu for all t, u, c, d
@@ -232,6 +267,8 @@ class Realign:
         self.fix_conference_constraints(m, y)
         self.forbid_team_constraints(m, x)
 
+        if not linearize:
+            self.bilinear_start(df, m, x, y)
         if args.get('mps_file'):
             m.write(args['mps_file'])
 
@@ -322,6 +359,12 @@ class Realign:
             self.print_vars(m, ['x', 'y'])
         return a
 
+
+    def init_algorithms(self):
+        return { "none" : self.solve_none, "greedy" : self.solve_greedy_dfs, 
+                "optimal" : self.solve_bilinear
+               }
+
     def solve(self, df, objective='distance', algorithm='optimal', **args):    
         self.log_solve(objective, algorithm, **args)
 
@@ -332,15 +375,12 @@ class Realign:
         else:
             raise Exception(f'unknown objective {objective}')
 
-        if algorithm == 'none':
-            a = self.solve_none(df, objective, objective_data)
-        elif algorithm == 'greedy' or algorithm == 'greedyDfs':
-            a = self.solve_greedy_dfs(df, objective, objective_data)
-        elif algorithm == 'optimal':
-            a = self.solve_bilinear(df, objective, objective_data, **args)
-        else:
-            raise Exception(f'unknown algorithm {algorithm}')
-
+        algs = self.init_algorithms()
+        if algorithm not in algs:
+            algorithms = ", ".join(algs.keys())
+            raise ValueError(f"Unknown algorithm {algorithm}. Choose from {algorithms}.")
+        
+        a = algs[algorithm](df, objective, objective_data, **args)
         r = self.make_solve_result(a, df, objective_columns(objective)) 
         obj = self.get_objective(r, objective, objective_data)
         self.log_result(r, obj)

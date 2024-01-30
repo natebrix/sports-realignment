@@ -1,6 +1,5 @@
 import gurobipy as gp
 
-
 # wrapper for gurobipy model to enable solver-agnostic code.
 class GurobiModel(gp.Model):    
     quicksum = gp.quicksum
@@ -9,6 +8,10 @@ class GurobiModel(gp.Model):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)  
         self.params.NonConvex = 0
+        self.NumStart = 0
+
+    def isNonconvex(self):
+        return self.params.NonConvex == 2
 
     def setLogFile(self, filename):
         self.setParam(gp.GRB.Param.LogFile, filename)
@@ -27,3 +30,20 @@ class GurobiModel(gp.Model):
 
     def getVal(self, var):
         return var.X
+    
+    def createSol(self):
+        s = self.NumStart
+        self.NumStart += 1
+        return s
+    
+    def setSolVal(self, solution, var, value):
+        if self.params.StartNumber != solution:
+            self.params.StartNumber = solution
+            self.update()
+        var.Start = value
+
+    def addSol(self, solution):
+        pass
+
+    def setNonconvexSolVal(self, solution):
+        pass
