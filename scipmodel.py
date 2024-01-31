@@ -3,6 +3,8 @@ import pyscipopt as scip
 # wrapper for scip model to enable solver-agnostic code.
 # pysciopt's API is pretty much a clone of Gurobi's.
 class ScipModel(scip.Model):    
+    solver_name = 'scip'
+    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)  
         self.nonconvex = False
@@ -71,4 +73,5 @@ class ScipModel(scip.Model):
             ts = self.nonconvex_expr.terms
             cost_val = sum([ts[xt] for xt in ts.keys() if self.both_warm(s, xt.vartuple)])
             self.setSolVal(s, self.cost, cost_val)
+
 

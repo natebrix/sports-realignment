@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 import timeit
+import time
 
 # Method  2
 # Heuristics  0
@@ -63,6 +64,8 @@ def score_competitiveness(df, rating='rating'):
     s = sorted([sum(g[1][rating]) for g in df.groupby(['conf', 'division'])])
     return s[-1] - s[0] # max difference
 
+# seems broken to pass in model.
+# pass solver_name as param to solve. Have a way to register a solver.
 class Realign:
     def __init__(self, league, model) -> None:
         self.league = league
@@ -296,7 +299,10 @@ class Realign:
 
     # return pre-existing alignment
     def solve_none(self, df, objective, objective_data):
-        return df[['team_abbr', 'conf', 'division']].values.tolist()
+        start = time.process_time()
+        result = df[['team_abbr', 'conf', 'division']].values.tolist()
+        end = time.process_time()
+        return result, end-start
 
 
     # v: entries
@@ -322,9 +328,9 @@ class Realign:
     def get_team_heap(self, objective_data):
         return sorted([x for x in objective_data.items() if x[0][0] < x[0][1]], key=lambda x: x[1])
 
-
     # Find a greedy solution in "depth first" order.  That is, fill divisions sequentially.
     def solve_greedy_dfs(self, df, objective, objective_data):
+        start = time.process_time()
         if objective[0] != 'd':
             raise Exception(f'greedy only works with distance objective')
         # todo: how to do this with competitiveness?
@@ -337,9 +343,9 @@ class Realign:
             div = self.greedy_dfs_step(v, self.league.team_count(c, d))
             for t in div:
                 results.append([t, c, d])
-            #print(div)
             v = self.remove_all_in_set(v, div)
-        return results
+        end = time.process_time()
+        return results, end-start
 
 
     def get_objective(self, r, objective, objective_data):
@@ -352,12 +358,14 @@ class Realign:
 
     def solve_bilinear(self, df, objective, objective_data, **args):
         m, x = self.base_model_bilinear(df, objective, objective_data, **args)
-        t = timeit.timeit(m.optimize, number=1)
+        m.optimize()
+        t = m.getSolvingTime()
+        # todo check result of optimize
         self.log(f'elapsed solve time = {t}')
-        a = self.get_assignment(df, m, x)
+        assign = self.get_assignment(df, m, x)
         if self.get_arg(args, 'verbose', False):
             self.print_vars(m, ['x', 'y'])
-        return a
+        return assign, t
 
 
     def init_algorithms(self):
@@ -380,9 +388,9 @@ class Realign:
             algorithms = ", ".join(algs.keys())
             raise ValueError(f"Unknown algorithm {algorithm}. Choose from {algorithms}.")
         
-        a = algs[algorithm](df, objective, objective_data, **args)
-        r = self.make_solve_result(a, df, objective_columns(objective)) 
+        assign, t = algs[algorithm](df, objective, objective_data, **args)
+        r = self.make_solve_result(assign, df, objective_columns(objective)) 
         obj = self.get_objective(r, objective, objective_data)
         self.log_result(r, obj)
-        return obj, r
+        return r, obj, t
 

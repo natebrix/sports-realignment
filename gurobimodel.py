@@ -4,6 +4,7 @@ import gurobipy as gp
 class GurobiModel(gp.Model):    
     quicksum = gp.quicksum
     minimize = gp.GRB.MINIMIZE
+    solver_name = 'gurobi'
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)  
@@ -47,3 +48,6 @@ class GurobiModel(gp.Model):
 
     def setNonconvexSolVal(self, solution):
         pass
+
+    def getSolvingTime(self):
+        return self.getAttr(gp.GRB.Attr.Runtime)   
