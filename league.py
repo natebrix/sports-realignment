@@ -12,6 +12,10 @@ class League:
     def team_count(self, c, d):
         return self.all_divisions[c, d]['team_count']
 
+    def total_team_count(self):
+        return sum([d['team_count'] for d in leagues['nfl'].league.all_divisions.values()])
+
+
     @staticmethod
     def read_csv(filename):
         df = pd.read_csv(filename)
