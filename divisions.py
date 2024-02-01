@@ -94,15 +94,20 @@ class Realign:
             f.write(f'{r.to_csv(index=False)}\n')
 
 
-    def max_swaps_constraints(self, df, m, x, num_teams):
-        teams = df['team_abbr'].unique() # [row['team_abbr'] for i, row in df.iterrows()] # todo seems bad
-        df_ms = pd.read_csv('opt-data/max_swaps.csv', header=None)
-        max_swaps = df_ms.iloc[0, 0]
+    def max_swaps_constraints(self, df, m, x, num_teams, max_swaps):
+        teams = df['team_abbr'].unique() 
+        print(f'MAX SWAPS {max_swaps}')
+        if max_swaps is None:
+            df_ms = pd.read_csv('opt-data/max_swaps.csv', header=None)
+            max_swaps = df_ms.iloc[0, 0]
+        print(f'MAX SWAPS {max_swaps}')
         fixed_teams = num_teams - max_swaps
         if fixed_teams > 0:
             print(f'MAX SWAPS {max_swaps}')
             # todo brittle...why???
-            m.addConstr(m.quicksum(x[t, df.loc[i, 'conf'], df.loc[i, 'division']] for i, t in enumerate(teams)) >= fixed_teams) 
+            # I want the sum of the x_icd for the existing assignment to be at least BLAH
+            # todo this is brittle because how do I now that order of teams matches order of df?
+            m.addConstr(self.model.quicksum(x[t, df.loc[i, 'conf'], df.loc[i, 'division']] for i, t in enumerate(teams)) >= fixed_teams) 
 
 
     def fix_division_constraints(self, m, x):
@@ -200,10 +205,9 @@ class Realign:
             m.setObjective(obj, self.model.minimize)
 
     def get_arg(self, args, key, default):
-        return args[key] if args.get(key) else default
+        return args[key] if (key in args) else default
 
     def bilinear_start(self, df, m, x, y):
-        print(df)
         solution = m.createSol()
         m.update() 
 
@@ -227,7 +231,11 @@ class Realign:
         m.addSol(solution)
 
     def base_model_bilinear(self, df, objective, objective_data, **args):
+        print(args)
         linearize = self.get_arg(args, 'linearize', False)
+        max_swaps = self.get_arg(args, 'max_swaps', None)
+        warm = self.get_arg(args, 'warm', False)
+
         # todo: do some kind of check to make sure df is compatible with league
         teams = [row['team_abbr'] for i, row in df.iterrows()] 
         num_teams = df.shape[0]
@@ -265,13 +273,14 @@ class Realign:
             raise Exception(f'unknown objective {objective}')
 
         self.structural_constraints(teams, m, x, y)
-        self.max_swaps_constraints(df, m, x, num_teams)
+        self.max_swaps_constraints(df, m, x, num_teams, max_swaps)
         self.fix_division_constraints(m, x)
         self.fix_conference_constraints(m, y)
         self.forbid_team_constraints(m, x)
 
-        if not linearize:
+        if warm and not linearize:
             self.bilinear_start(df, m, x, y)
+
         if args.get('mps_file'):
             m.write(args['mps_file'])
 
