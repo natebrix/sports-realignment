@@ -14,37 +14,36 @@ def write_by_conference(league, season):
         print(f"Writing {filename}")
         df_c.to_csv(f'data/{filename}', index=False)
 
-def run_league(info, objectives, algorithms, model, plot, **kwargs):
+def run_league(info, objectives, algorithms, plot, **kwargs):
     results = []
-    r = Realign(info.league, model)
     for y in info.seasons:
         for objective in objectives:
             for algorithm in algorithms:
-                s, obj, t = r.solve(info.seasons[y], objective=objective, algorithm=algorithm, **kwargs)
+                s, obj, t = realign(info.league, info.seasons[y], objective=objective, algorithm=algorithm, **kwargs)
                 if plot:
                     plot_divisions(info.name, s)
-                results.append([info.name, y, objective, algorithm, obj, t, model.solver_name])
+                results.append([info.name, y, objective, algorithm, obj, t, get_arg(kwargs, 'solver', 'none')])
     return pd.DataFrame(results, columns=['league', 'season', 'objective', 'algorithm', 'objective_value', 'time', 'solver'])
 
-def run(objectives, algorithms, plot=False, model=GurobiModel, **kwargs):
+def run(objectives, algorithms, plot, **kwargs):
     results = []
     for name in leagues:
         info = leagues[name]
         print(f"Running league {info.name} with {objectives} and {algorithms}")
-        results.append(run_league(info, objectives, algorithms, model, plot, **kwargs))
+        results.append(run_league(info, objectives, algorithms, plot, **kwargs))
     df = pd.concat(results)
-    log_to_file(r.logfile, df.to_csv(index=False))
+    # log_to_file(r.logfile, df.to_csv(index=False)) todo need logger after all
     return df
 
-def run_solvers(objectives, models=[GurobiModel, ScipModel], plot=False):
+def run_solvers(objectives, solvers=['gurobi', 'scip'], plot=False):
     results = []
     ls = [leagues['nfl-conf'], leagues['nba-conf'], leagues['nhl-conf'], leagues['mlb-conf']]
     for info in ls:
         print(f"Running league {info.name} with {objectives}")
-        for model in models:
-            results.append(run_league(info, objectives, ['optimal'], model, plot))
+        for solver in solvers:
+            results.append(run_league(info, objectives, ['optimal'], plot, solver=solver))
     df = pd.concat(results)
-    log_to_file(r.logfile, df.to_csv(index=False))
+    #log_to_file(r.logfile, df.to_csv(index=False))
     return df
 
 # todo fix me. Debug these results. I am not sure they are right.
@@ -52,12 +51,11 @@ def run_max_swaps(league_name='nfl-conf', season='2023-nfc'):
     results = []
     info = leagues[league_name]
     print(f"Running league {info.name}-{season} with max_swaps")
-    r = Realign(info.league, GurobiModel)
     for i in range(info.league.total_team_count()):
-        s, obj, t = r.solve(info.seasons[season], max_swaps=i)
+        s, obj, t = realign(info.league, info.seasons[season], max_swaps=i, solver='gurobi')
         results.append([info.name, 2023, i, obj, t])
     df = pd.DataFrame(results, columns=['league', 'season', 'max_swaps', 'objective_value', 'time'])
-    log_to_file(r.logfile, df.to_csv(index=False))
+    #log_to_file(r.logfile, df.to_csv(index=False))
     return df
 
 # to compress: convert mlb_inc.png -compress lzw eps2:mlb_inc.eps

@@ -5,12 +5,6 @@ from datetime import datetime
 import timeit
 import time
 
-# Method  2
-# Heuristics  0
-# Cuts  1
-# CutPasses  5
-# Presolve  2
-
 # stackoverflow
 # Computes the haversine distance between two points.
 def haversine(lat1, lon1, lat2, lon2):
@@ -64,35 +58,130 @@ def score_competitiveness(df, rating='rating'):
     s = sorted([sum(g[1][rating]) for g in df.groupby(['conf', 'division'])])
     return s[-1] - s[0] # max difference
 
-# seems broken to pass in model.
-# pass solver_name as param to solve. Have a way to register a solver.
-class Realign:
-    def __init__(self, league, model) -> None:
+def get_arg(args, key, default):
+    return args[key] if (key in args) else default
+
+
+class RealignmentModel:
+    def __init__(self, league, df) -> None:
         self.league = league
-        self.model = model
         suffix = datetime.now().strftime("%Y_%m_%d")
         self.logfile = f'out/realign_{suffix}.log'
+        self.df = df
+        self.algorithm = 'INVALID'
 
-    def log(self, msg):
-        log_to_file(self.logfile, msg)
-
-
-    def log_solve(self, objective, algorithm, **args):
+    def log_solve(self, objective, **args):
         with open(self.logfile, 'a') as f:
             f.write(f'**** SOLVE {datetime.now()}\n')
-            f.write(f'solver = {self.model.__name__}\n')
             f.write(f'objective = {objective}\n')
-            f.write(f'algorithm = {algorithm}\n')
+            f.write(f'algorithm = {self.algorithm}\n')
             f.write(f'{self.league.all_divisions}\n')
             for arg in args:
                 f.write(f'{arg} = {args[arg]}\n')
 
+    def log(self, msg):
+        log_to_file(self.logfile, msg)
 
     def log_result(self, r, obj):
         with open(self.logfile, 'a') as f:
             f.write(f'objective = {obj}\n')
             f.write(f'{r.to_csv(index=False)}\n')
 
+    def in_division_x(self, m, x):
+        return m.getVal(x) > 0.99
+
+
+    def get_assignment(self, df, m, x):
+        abbrs = [row['team_abbr'] for i, row in df.iterrows()]
+        return [(a, c, d) for (c, d) in self.league.all_divisions for a in abbrs if self.in_division_x(m, x[a, c, d])]
+
+    def print_vars(self, m, not_starting_with=[]):
+        for v in m.getVars():
+            if v.varName[0] not in not_starting_with:
+                print(f'{v.varName} = {v.x}')
+
+    def solve_core(self, df, objective, objective_data, **args):
+        pass
+
+    def solve(self, objective, objective_data, **args):
+        self.log_solve(objective, **args)
+        start = time.perf_counter()
+        result = self.solve_core(self.df, objective, objective_data, **args)
+        end = time.perf_counter()
+        return result, end-start
+
+
+class NaiveModel(RealignmentModel):
+    def __init__(self, league, df, **args) -> None:
+        super().__init__(league, df)
+        self.algorithm = 'naive'
+
+    # return pre-existing alignment
+    def solve_core(self, df, objective, objective_data):
+        return df[['team_abbr', 'conf', 'division']].values.tolist()
+
+class GreedyModel(RealignmentModel):
+    def __init__(self, league, df, **args) -> None:
+        super().__init__(league, df)
+        self.algorithm = 'greedy'
+
+    # v: entries
+    # k: number of teams in division
+    def greedy_dfs_step(self, v, team_count):
+        # how to honor constraints...
+        # here we can fill in any fixed ones.
+        # we can also remove any that are forbidden.
+        # max swaps seems hard
+        f = v.pop(0)
+        t = set(f[0])
+        while len(t) < team_count:
+            # print(t, len(v))
+            i = next(i for i, x in enumerate(v) if (x[0][0] in t) or (x[0][1] in t))
+            f = v.pop(i)
+            t |= set(f[0]) 
+        return list(t)
+
+    def remove_all_in_set(self, v, s):
+        return [x for x in v if x[0][0] not in s and x[0][1] not in s] # not efficient
+
+
+    def get_team_heap(self, objective_data):
+        return sorted([x for x in objective_data.items() if x[0][0] < x[0][1]], key=lambda x: x[1])
+
+    # Find a greedy solution in "depth first" order.  That is, fill divisions sequentially.
+    def solve_core(self, df, objective, objective_data, **args):
+        if objective[0] != 'd':
+            raise Exception(f'greedy only works with distance objective')
+        # todo: how to do this with competitiveness?
+        # --> the greedy choice should be added to the division with the smallest total score
+        v = self.get_team_heap(objective_data)
+        results = []
+        for (c, d) in self.league.all_divisions:
+            #print(f'{c} {d}')
+            # todo filter v for constraints
+            div = self.greedy_dfs_step(v, self.league.team_count(c, d))
+            for t in div:
+                results.append([t, c, d])
+            v = self.remove_all_in_set(v, div)
+        return results
+
+
+def get_model_class(solver):
+    if solver == 'gurobi':
+        return GurobiModel
+    elif solver == 'scip':
+        return ScipModel
+    else:
+        raise Exception(f'unknown solver {solver}')
+
+
+class BinlinearModel(RealignmentModel):
+    def __init__(self, league, df, **args) -> None:
+        super().__init__(league, df)
+        solver = get_arg(args, 'solver', 'gurobi')
+        self.model = get_model_class(solver)
+        self.algorithm = 'bilinear'
+        self.args = args
 
     def max_swaps_constraints(self, df, m, x, num_teams, max_swaps):
         teams = df['team_abbr'].unique() 
@@ -175,10 +264,10 @@ class Realign:
 
 
     def distance_objective(self, teams, distances, m, x, y, **args):
-        linearize = self.get_arg(args, 'linearize', False)
+        linearize = get_arg(args, 'linearize', False)
         if linearize:
             print('linearize')
-        dummy = self.get_arg(args, 'dummy', False)
+        dummy = get_arg(args, 'dummy', False)
 
         if linearize:
             # z_t1t2cd == 1 if teams t1 and t2 are in conference c and division d.
@@ -204,9 +293,6 @@ class Realign:
         else:
             m.setObjective(obj, self.model.minimize)
 
-    def get_arg(self, args, key, default):
-        return args[key] if (key in args) else default
-
     def bilinear_start(self, df, m, x, y):
         solution = m.createSol()
         m.update() 
@@ -231,10 +317,11 @@ class Realign:
         m.addSol(solution)
 
     def base_model_bilinear(self, df, objective, objective_data, **args):
-        print(args)
-        linearize = self.get_arg(args, 'linearize', False)
-        max_swaps = self.get_arg(args, 'max_swaps', None)
-        warm = self.get_arg(args, 'warm', False)
+        self.log(f'solver = {self.model.__name__}\n')
+
+        linearize = get_arg(args, 'linearize', False)
+        max_swaps = get_arg(args, 'max_swaps', None)
+        warm = get_arg(args, 'warm', False)
 
         # todo: do some kind of check to make sure df is compatible with league
         teams = [row['team_abbr'] for i, row in df.iterrows()] 
@@ -266,7 +353,7 @@ class Realign:
         y = {(t, c): m.addBinaryVar(name=f"x_{t}_{c}") for c in self.league.confs for t in teams}
 
         if objective[0] == 'd':
-            self.distance_objective(teams, objective_data, m, x, y, **args)
+            self.distance_objective(teams, objective_data, m, x, y, **self.args)
         elif objective[0] == 'c':
             self.competitiveness_objective(teams, objective_data, m, x)
         else:
@@ -286,120 +373,51 @@ class Realign:
 
         return m, x
 
-
-    def in_division_x(self, m, x):
-        return m.getVal(x) > 0.99
-
-
-    def get_assignment(self, df, m, x):
-        abbrs = [row['team_abbr'] for i, row in df.iterrows()]
-        return [(a, c, d) for (c, d) in self.league.all_divisions for a in abbrs if self.in_division_x(m, x[a, c, d])]
-
-
-    def make_solve_result(self, a, df, keep):
-        r = pd.DataFrame(a, columns=['team_abbr', 'conf', 'division'])
-        return pd.merge(r, df[['team_abbr'] + keep], on='team_abbr')
-
-
-    def print_vars(self, m, not_starting_with=[]):
-        for v in m.getVars():
-            if v.varName[0] not in not_starting_with:
-                print(f'{v.varName} = {v.x}')
-
-    # return pre-existing alignment
-    def solve_none(self, df, objective, objective_data):
-        start = time.process_time()
-        result = df[['team_abbr', 'conf', 'division']].values.tolist()
-        end = time.process_time()
-        return result, end-start
-
-
-    # v: entries
-    # k: number of teams in division
-    def greedy_dfs_step(self, v, team_count):
-        # how to honor constraints...
-        # here we can fill in any fixed ones.
-        # we can also remove any that are forbidden.
-        # max swaps seems hard
-        f = v.pop(0)
-        t = set(f[0])
-        while len(t) < team_count:
-            # print(t, len(v))
-            i = next(i for i, x in enumerate(v) if (x[0][0] in t) or (x[0][1] in t))
-            f = v.pop(i)
-            t |= set(f[0]) 
-        return list(t)
-
-    def remove_all_in_set(self, v, s):
-        return [x for x in v if x[0][0] not in s and x[0][1] not in s] # not efficient
-
-
-    def get_team_heap(self, objective_data):
-        return sorted([x for x in objective_data.items() if x[0][0] < x[0][1]], key=lambda x: x[1])
-
-    # Find a greedy solution in "depth first" order.  That is, fill divisions sequentially.
-    def solve_greedy_dfs(self, df, objective, objective_data):
-        start = time.process_time()
-        if objective[0] != 'd':
-            raise Exception(f'greedy only works with distance objective')
-        # todo: how to do this with competitiveness?
-        # --> the greedy choice should be added to the division with the smallest total score
-        v = self.get_team_heap(objective_data)
-        results = []
-        for (c, d) in self.league.all_divisions:
-            #print(f'{c} {d}')
-            # todo filter v for constraints
-            div = self.greedy_dfs_step(v, self.league.team_count(c, d))
-            for t in div:
-                results.append([t, c, d])
-            v = self.remove_all_in_set(v, div)
-        end = time.process_time()
-        return results, end-start
-
-
-    def get_objective(self, r, objective, objective_data):
-        if objective[0] == 'c':
-            return score_competitiveness(r)
-        elif objective[0] == 'd':
-            return score(r, objective_data)
-        else:
-            raise Exception(f'unknown objective {objective}')
-
-    def solve_bilinear(self, df, objective, objective_data, **args):
+    def solve_core(self, df, objective, objective_data, **args):
         m, x = self.base_model_bilinear(df, objective, objective_data, **args)
         m.optimize()
-        t = m.getSolvingTime()
+        #t = m.getSolvingTime()
         # todo check result of optimize
-        self.log(f'elapsed solve time = {t}')
+        # self.log(f'elapsed solve time = {t}')
         assign = self.get_assignment(df, m, x)
-        if self.get_arg(args, 'verbose', False):
+        if get_arg(args, 'verbose', False):
             self.print_vars(m, ['x', 'y'])
-        return assign, t
+        return assign
 
 
-    def init_algorithms(self):
-        return { "none" : self.solve_none, "greedy" : self.solve_greedy_dfs, 
-                "optimal" : self.solve_bilinear
-               }
+def get_objective(r, objective, objective_data):
+    if objective[0] == 'c':
+        return score_competitiveness(r)
+    elif objective[0] == 'd':
+        return score(r, objective_data)
+    else:
+        raise Exception(f'unknown objective {objective}')
 
-    def solve(self, df, objective='distance', algorithm='optimal', **args):    
-        self.log_solve(objective, algorithm, **args)
+def realign_result(a, df, keep):
+    r = pd.DataFrame(a, columns=['team_abbr', 'conf', 'division'])
+    return pd.merge(r, df[['team_abbr'] + keep], on='team_abbr')
 
-        if objective[0] == 'd':
-            objective_data = make_distances(df)
-        elif objective[0] == 'c':
-            objective_data = make_scores(df)
-        else:
-            raise Exception(f'unknown objective {objective}')
 
-        algs = self.init_algorithms()
-        if algorithm not in algs:
-            algorithms = ", ".join(algs.keys())
-            raise ValueError(f"Unknown algorithm {algorithm}. Choose from {algorithms}.")
-        
-        assign, t = algs[algorithm](df, objective, objective_data, **args)
-        r = self.make_solve_result(assign, df, objective_columns(objective)) 
-        obj = self.get_objective(r, objective, objective_data)
-        self.log_result(r, obj)
-        return r, obj, t
+def init_algorithms():
+    return { "naive" : NaiveModel, "greedy" : GreedyModel, "optimal" : BinlinearModel}
+
+def realign(league, df, objective='distance', algorithm='optimal', **args): 
+    if objective[0] == 'd':
+        objective_data = make_distances(df)
+    elif objective[0] == 'c':
+        objective_data = make_scores(df)
+    else:
+        raise Exception(f'unknown objective {objective}')
+
+    algs = init_algorithms()
+    if algorithm not in algs:
+        algorithms = ", ".join(algs.keys())
+        raise ValueError(f"Unknown algorithm {algorithm}. Choose from {algorithms}.")
+    
+    solver = algs[algorithm](league, df, **args)
+    assign, t = solver.solve(objective, objective_data)
+    r = realign_result(assign, df, objective_columns(objective)) 
+    obj = get_objective(r, objective, objective_data)
+    solver.log_result(r, obj)
+    return r, obj, t
 
