@@ -1,11 +1,12 @@
 import plotly.express as px
 import plotly.graph_objs as go
-# https://stackoverflow.com/questions/11416024/error-installing-python-snappy-snappy-c-h-no-such-file-or-directory
-#from PIL import Image
+import matplotlib.pyplot as plt
+from matplotlib.ticker import PercentFormatter
 import numpy as np
 import pandas as pd
 import os
 import urllib.request
+
 
 # results rendering
 #   show the divisions nicely with helmets
@@ -48,13 +49,17 @@ def projection_for_league(league):
     else:
         raise ValueError(f"Unknown league {league}")
 
-def plot_divisions(league, df, keys=['conf', 'division'], scope='north america', title=None):
+def plot_divisions(league_name, df, keys=['conf', 'division'], scope='north america', title=None):
+    line_color = '#2b0c52'
     data = order_by_division_paths(df, keys)
     data['label'] = data[keys].agg(' '.join, axis=1)
-    fig = px.line_geo(data, lon="team_lng", lat="team_lat", scope=scope, color='label', 
+    print(data['label'])
+    fig = px.line_geo(data, lon="team_lng", lat="team_lat", scope=scope, line_dash='label', 
+                      color='label',
                       text = data['team_abbr'])
+    fig.update_traces(line_color=line_color, line_width=5)
     fig.update_traces(textposition='top center')
-    proj = projection_for_league(league)
+    proj = projection_for_league(league_name)
     fig.layout = go.Layout(
         geo = dict(
             scope = scope,
@@ -62,25 +67,31 @@ def plot_divisions(league, df, keys=['conf', 'division'], scope='north america',
             projection = proj,
             showland = True,
             landcolor = 'rgb(250, 250, 250)',
-            subunitcolor = 'rgb(217, 217, 217)',
+            subunitcolor = 'rgb(177, 177, 177)',
             countrycolor = 'rgb(217, 217, 217)',
+            lakecolor = 'rgb(255, 255, 255)',
             countrywidth = 0.5,
             subunitwidth = 0.5
         ),
         title = dict(
             text = title,
             font = dict(size = 28)
-        ) if title else None,
-        margin = dict(r = 0, l = 0, t = 100, b = 0)
+        ) if title else None
+        #margin = dict(r = 0, l = 0, t = 100, b = 0)
     )
+    fig.update_layout(margin=dict(l=0, r=0, b=0, t=0),
+                  width=1500, 
+                  height=800, showlegend=True)
     fig.update_layout(legend=dict(
-        yanchor="bottom",
-        y=-0.01,
-        xanchor="center",
-        x=0.5,
-        orientation='h'
+        font = dict(size = 24, color = line_color),
+        xanchor="left",
+        x=0.0,
+        yanchor="top",
+        #orientation='h' # hides it for some reason
     ))
+
     fig.show()
+    # fig.write_image("images/fig1.png")
     return fig
 
 def plot_teams(df, scope='north america', title=None):
@@ -121,3 +132,21 @@ def plot_teams(df, scope='north america', title=None):
     fig = go.Figure(data = [data], layout = layout)
     fig.show()    
     return fig
+
+def plot_max_swaps(df):
+    fig, ax1 = plt.subplots()
+
+    ax2 = ax1.twinx()
+    ax1.plot(df['swaps'], df['gap'], 'g-', marker='o')  # Added marker for clarity
+    ax2.plot(df['swaps'], df['t'], 'b-', marker='o')  # Added marker for clarity
+
+    ax1.set_xlabel('Swaps')
+    ax1.set_ylabel('Gap', color='g')
+    ax2.set_ylabel('Time', color='b')
+
+    # Set the x-ticks explicitly to match the 'swaps' values
+    ax1.set_xticks(df['swaps'][::5])
+    ax1.set_xticklabels(df['swaps'][::5])
+    ax1.yaxis.set_major_formatter(PercentFormatter(1))
+    plt.tight_layout()
+    plt.show()
