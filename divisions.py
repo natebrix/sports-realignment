@@ -1,9 +1,10 @@
 from math import radians, cos, sin, asin, sqrt
 import pandas as pd
 import numpy as np
-from datetime import datetime
 import timeit
 import time
+
+# todo: collect and return model info as dictionary
 
 # stackoverflow
 # Computes the haversine distance between two points.
@@ -65,8 +66,7 @@ def get_arg(args, key, default):
 class RealignmentModel:
     def __init__(self, league, df) -> None:
         self.league = league
-        suffix = datetime.now().strftime("%Y_%m_%d")
-        self.logfile = f'out/realign_{suffix}.log'
+        self.logfile = get_log_filename('realign')
         self.df = df
         self.algorithm = 'INVALID'
 
@@ -81,10 +81,13 @@ class RealignmentModel:
 
     def log(self, msg):
         log_to_file(self.logfile, msg)
+        
 
-    def log_result(self, r, obj):
+    def log_result(self, r, solve_info):
         with open(self.logfile, 'a') as f:
-            f.write(f'objective = {obj}\n')
+            f.write(f'objective = {solve_info["objective"]}\n')
+            f.write(f'time = {solve_info["time"]}\n')
+            # todo write all scalars in solve_info and shapes of dataframes
             f.write(f'{r.to_csv(index=False)}\n')
 
     def in_division_x(self, m, x):
@@ -100,15 +103,18 @@ class RealignmentModel:
             if v.varName[0] not in not_starting_with:
                 print(f'{v.varName} = {v.x}')
 
+    # return a dictionary. At minimum it should have the key 'data'
+    # with the results of the realignment.
     def solve_core(self, df, objective, objective_data, **args):
         pass
 
     def solve(self, objective, objective_data, **args):
         self.log_solve(objective, **args)
         start = time.perf_counter()
-        result = self.solve_core(self.df, objective, objective_data, **args)
+        result, solve_info = self.solve_core(self.df, objective, objective_data, **args)
         end = time.perf_counter()
-        return result, end-start
+        solve_info['time'] = end - start
+        return result, solve_info
 
 
 class NaiveModel(RealignmentModel):
@@ -118,7 +124,8 @@ class NaiveModel(RealignmentModel):
 
     # return pre-existing alignment
     def solve_core(self, df, objective, objective_data):
-        return df[['team_abbr', 'conf', 'division']].values.tolist()
+        return df[['team_abbr', 'conf', 'division']].values.tolist(), {}
+
 
 class GreedyModel(RealignmentModel):
     def __init__(self, league, df, **args) -> None:
@@ -163,7 +170,7 @@ class GreedyModel(RealignmentModel):
             for t in div:
                 results.append([t, c, d])
             v = self.remove_all_in_set(v, div)
-        return results
+        return results, {}
 
 
 def get_model_class(solver):
@@ -183,25 +190,25 @@ class BinlinearModel(RealignmentModel):
         self.algorithm = 'bilinear'
         self.args = args
 
-    def max_swaps_constraints(self, df, m, x, num_teams, max_swaps):
+    def max_swaps_constraints(self, solve_info, df, m, x, num_teams, max_swaps):
         teams = df['team_abbr'].unique() 
-        print(f'MAX SWAPS {max_swaps}')
         if max_swaps is None:
             df_ms = pd.read_csv('opt-data/max_swaps.csv', header=None)
             max_swaps = df_ms.iloc[0, 0]
-        print(f'MAX SWAPS {max_swaps}')
+        solve_info['max_swaps'] = max_swaps
         fixed_teams = num_teams - max_swaps
         if fixed_teams > 0:
-            print(f'MAX SWAPS {max_swaps}')
             # todo brittle...why???
             # I want the sum of the x_icd for the existing assignment to be at least BLAH
             # todo this is brittle because how do I now that order of teams matches order of df?
             m.addConstr(self.model.quicksum(x[t, df.loc[i, 'conf'], df.loc[i, 'division']] for i, t in enumerate(teams)) >= fixed_teams) 
 
 
-    def fix_division_constraints(self, m, x):
+    def fix_division_constraints(self, solve_info, m, x):
         # for everything in fixed.csv, assign x_icd = 1
         fix_teams = pd.read_csv('opt-data/fix_teams.csv')
+        if fix_teams.shape[0] > 0:
+            solve_info['fix_teams'] = fix_teams
         for idx, f in fix_teams.iterrows():
             t = f['team_abbr']
             c = f['conf']
@@ -209,10 +216,12 @@ class BinlinearModel(RealignmentModel):
             print(f'{t} --> {c} {d}')
             m.addConstr(x[t, c, d] == 1)
 
-
-    def fix_conference_constraints(self, m, y):
+    def fix_conference_constraints(self, solve_info, m, y):
         # for everything in fix_conf.csv, sum_d x_icd = 1 for fixed c
         fix_conf = pd.read_csv('opt-data/fix_conf.csv')
+        if fix_conf.shape[0] > 0:
+            solve_info['fix_conf'] = fix_conf
+
         for idx, f in fix_conf.iterrows():
             t = f['team_abbr']
             c = f['conf']
@@ -220,8 +229,10 @@ class BinlinearModel(RealignmentModel):
             m.addConstr(y[t, c] == 1)
 
 
-    def forbid_team_constraints(self, m, x):
+    def forbid_team_constraints(self, solve_info, m, x):
         forbid_teams = pd.read_csv('opt-data/forbid_teams.csv')
+        if forbid_teams.shape[0] > 0:
+            solve_info['forbid_teams'] = forbid_teams
         for idx, row in forbid_teams.iterrows():
             i = row['team_abbr1']
             j = row['team_abbr2']
@@ -231,7 +242,7 @@ class BinlinearModel(RealignmentModel):
                     m.addConstr(x[i, c, d] + x[j, c, d] <= 1)
 
 
-    def structural_constraints(self, teams, m, x, y):
+    def structural_constraints(self, solve_info, teams, m, x, y):
         for (c, d) in self.league.all_divisions:
             m.addConstr(self.model.quicksum(x[a, c, d] for a in teams) == self.league.team_count(c, d))
 
@@ -243,7 +254,7 @@ class BinlinearModel(RealignmentModel):
                 m.addConstr(self.model.quicksum(x[t, c, d] for d in self.league.divisions(c)) == y[t, c])
 
 
-    def competitiveness_objective(self, teams, s, m, x):
+    def competitiveness_objective(self, solve_info, teams, s, m, x):
         # if we are trying to maximize competitiveness then what we want is to minimize the maximum 
         # gap in strengths between divisions.
         r = {(c, d): m.addContinuousVar(name=f"r_{c}_{d}", lb=float('-inf')) for (c, d) in self.league.all_divisions}
@@ -254,7 +265,7 @@ class BinlinearModel(RealignmentModel):
         m.setObjective(rm, self.model.minimize)
 
     # todo stability objective
-    def stability_objective(self, teams, s, m, x):
+    def stability_objective(self, solve_info, teams, s, m, x):
         # we want to minimize the number of teams that change divisions
         # we want an indicator variable for each team that is 1 if the team changes divisions
         u = {t: m.addBinaryVar(name=f"u_{t}") for t in teams}
@@ -263,12 +274,10 @@ class BinlinearModel(RealignmentModel):
         m.addConstr(m.quicksum(x[t, df.loc[i, 'conf'], df.loc[i, 'division']] for i, t in enumerate(teams)) >= fixed_teams) 
 
 
-    def distance_objective(self, teams, distances, m, x, y, **args):
+    def distance_objective(self, solve_info, teams, distances, m, x, y, **args):
         linearize = get_arg(args, 'linearize', False)
-        if linearize:
-            print('linearize')
         dummy = get_arg(args, 'dummy', False)
-
+        solve_info['linearize'] = linearize
         if linearize:
             # z_t1t2cd == 1 if teams t1 and t2 are in conference c and division d.
             z = {(t1, t2, c, d): m.addBinaryVar(name=f"z_{t1}_{t2}_{c}_{d}") for (c, d) in self.league.all_divisions for t1 in teams for t2 in teams}
@@ -293,7 +302,7 @@ class BinlinearModel(RealignmentModel):
         else:
             m.setObjective(obj, self.model.minimize)
 
-    def bilinear_start(self, df, m, x, y):
+    def bilinear_start(self, solve_info, df, m, x, y):
         solution = m.createSol()
         m.update() 
 
@@ -316,8 +325,9 @@ class BinlinearModel(RealignmentModel):
             m.setNonconvexSolVal(solution)
         m.addSol(solution)
 
-    def base_model_bilinear(self, df, objective, objective_data, **args):
+    def create_model_bilinear(self, df, objective, objective_data, **args):
         self.log(f'solver = {self.model.__name__}\n')
+        solve_info = {}
 
         linearize = get_arg(args, 'linearize', False)
         max_swaps = get_arg(args, 'max_swaps', None)
@@ -353,36 +363,37 @@ class BinlinearModel(RealignmentModel):
         y = {(t, c): m.addBinaryVar(name=f"x_{t}_{c}") for c in self.league.confs for t in teams}
 
         if objective[0] == 'd':
-            self.distance_objective(teams, objective_data, m, x, y, **self.args)
+            self.distance_objective(solve_info, teams, objective_data, m, x, y, **self.args)
         elif objective[0] == 'c':
-            self.competitiveness_objective(teams, objective_data, m, x)
+            self.competitiveness_objective(solve_info, teams, objective_data, m, x)
         else:
             raise Exception(f'unknown objective {objective}')
 
-        self.structural_constraints(teams, m, x, y)
-        self.max_swaps_constraints(df, m, x, num_teams, max_swaps)
-        self.fix_division_constraints(m, x)
-        self.fix_conference_constraints(m, y)
-        self.forbid_team_constraints(m, x)
+        self.structural_constraints(solve_info, teams, m, x, y)
+        self.max_swaps_constraints(solve_info, df, m, x, num_teams, max_swaps)
+        self.fix_division_constraints(solve_info, m, x)
+        self.fix_conference_constraints(solve_info, m, y)
+        self.forbid_team_constraints(solve_info, m, x)
 
+        solve_info['warm'] = warm
         if warm and not linearize:
-            self.bilinear_start(df, m, x, y)
+            self.bilinear_start(solve_info, df, m, x, y)
 
         if args.get('mps_file'):
             m.write(args['mps_file'])
 
-        return m, x
+        return m, x, solve_info
 
     def solve_core(self, df, objective, objective_data, **args):
-        m, x = self.base_model_bilinear(df, objective, objective_data, **args)
+        m, x, solve_info = self.create_model_bilinear(df, objective, objective_data, **args)
         m.optimize()
-        #t = m.getSolvingTime()
-        # todo check result of optimize
-        # self.log(f'elapsed solve time = {t}')
+        solve_info['solve_time'] = m.getSolvingTime()
+        if not m.is_optimal():
+            raise Exception(f'solver did not find optimal solution')    
         assign = self.get_assignment(df, m, x)
         if get_arg(args, 'verbose', False):
             self.print_vars(m, ['x', 'y'])
-        return assign
+        return assign, solve_info
 
 
 def get_objective(r, objective, objective_data):
@@ -398,7 +409,7 @@ def realign_result(a, df, keep):
     return pd.merge(r, df[['team_abbr'] + keep], on='team_abbr')
 
 
-def init_algorithms():
+def get_algorithms():
     return { "naive" : NaiveModel, "greedy" : GreedyModel, "optimal" : BinlinearModel}
 
 def realign(league, df, objective='distance', algorithm='optimal', **args): 
@@ -409,15 +420,22 @@ def realign(league, df, objective='distance', algorithm='optimal', **args):
     else:
         raise Exception(f'unknown objective {objective}')
 
-    algs = init_algorithms()
+    algs = get_algorithms()
     if algorithm not in algs:
         algorithms = ", ".join(algs.keys())
         raise ValueError(f"Unknown algorithm {algorithm}. Choose from {algorithms}.")
     
     solver = algs[algorithm](league, df, **args)
-    assign, t = solver.solve(objective, objective_data)
+    assign, solve_info = solver.solve(objective, objective_data, **args)
     r = realign_result(assign, df, objective_columns(objective)) 
-    obj = get_objective(r, objective, objective_data)
-    solver.log_result(r, obj)
-    return r, obj, t
+    solve_info['objective'] = get_objective(r, objective, objective_data)
+    solver.log_result(r, solve_info)
+    return r, solve_info
 
+# todo simple heuristic to assign reasonable names to divisions for NFL.
+# Let Seattle be in the NFC WEST.
+# Then take the farthest west centroid division and call that AFC WEST.
+# Then let New York Giants be in the NFC EAST.
+# Then take the farthest east centroid division and call that AFC EAST.
+# Then take the two farthest north divisions. Call one NFC NORTH and the other AFC NORTH.
+# and do the same for south. 

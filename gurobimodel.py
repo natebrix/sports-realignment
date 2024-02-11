@@ -51,3 +51,6 @@ class GurobiModel(gp.Model):
 
     def getSolvingTime(self):
         return self.getAttr(gp.GRB.Attr.Runtime)   
+    
+    def is_optimal(self):
+        return self.status == GRB.OPTIMAL
