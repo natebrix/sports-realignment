@@ -8,6 +8,8 @@ import pandas as pd
 #r_all = pd.read_csv('out/leagues_2024_02_05.log')
 # nfl_2023_distance_optimal.csv
 
+solvers = SolverRegistry([ScipModel, GurobiModel])
+scip = solvers.create_solver_environment('scip')
 
 all_algs = list(get_algorithms().keys())
 

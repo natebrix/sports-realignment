@@ -25,6 +25,7 @@ class ScipModel(scip.Model):
 
     quicksum = scip.quicksum
     minimize = "minimize"
+    maximize = "maximize"
 
     def setNonconvex(self, value):
         self.nonconvex = value

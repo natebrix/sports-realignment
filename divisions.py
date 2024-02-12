@@ -4,8 +4,6 @@ import numpy as np
 import timeit
 import time
 
-# todo: collect and return model info as dictionary
-
 # stackoverflow
 # Computes the haversine distance between two points.
 def haversine(lat1, lon1, lat2, lon2):
@@ -62,6 +60,64 @@ def score_competitiveness(df, rating='rating'):
 def get_arg(args, key, default):
     return args[key] if (key in args) else default
 
+# -----
+
+def alignment_matrix(league, r, s):
+    sgd = dict(list(r.groupby(['conf', 'division'])))
+    ngd = dict(list(s.groupby(['conf', 'division'])))
+    divs = league.all_divisions.keys()
+    n = len(divs)
+    a = np.zeros([n, n])
+    for i, (c1, d1) in enumerate(divs):
+        for j, (c2, d2) in enumerate(divs):
+            a[i, j] = sgd[c1, d1].merge(ngd[c2, d2], on=['team_abbr']).shape[0]
+    return a
+
+def get_vars_above_threshold(m, x, threshold):
+    return [k for k in x if m.getVal(x[k]) > threshold]
+
+# solve an assignment problem with the given row and column ids, with distance matrix d.
+# the number of assignments for each row and column is given by row_count and col_count.
+def solve_assignment(d, minimize=True, **kwargs):
+    n = d.shape[0]
+    env = solvers.create_solver_environment(get_arg(kwargs, 'solver', None))
+    m = env()
+    # note: we should be able to make this continuous, but that depends on the solver returning a basic solution
+    # so we will make this binary to be safe.
+    # on the other hand this may make the assignment problem intractable.
+    #x = {(i, j): m.addContinuousVar(name=f"x_{i}_{j}", lb=0, ub=1) for i in row_ids for j in col_ids}
+    x = {(i, j): m.addBinaryVar(name=f"x_{i}_{j}") for i in range(n) for j in range(n)}
+    sense = m.minimize if minimize else m.maximize
+    m.setObjective(env.quicksum(d[i, j] * x[i, j] for i in range(n) for j in range(n)), sense)
+    for i in range(n): 
+        m.addConstr(env.quicksum(x[i, j] for j in range(n)) == 1)
+    for j in range(n):
+        m.addConstr(env.quicksum(x[i, j] for i in range(n)) == 1)
+    m.optimize()
+    if not m.is_optimal():
+        raise Exception(f'Optimization failed. Not optimal.')
+    a = get_vars_above_threshold(m, x, 0.99)
+    if len(a) != n: 
+        raise Exception(f'Expected {n} assignments, got {len(a)}')
+    #print([x[k].x for k in x])
+    return a
+
+# realign() pays no regard for incumbent divisions. If no constraints were specified in
+# the realignment, we can safely relabel the divisions to best match the incumbent divisions.
+def relabel_divisions(league, df_old, df_new, **kwargs):
+    # Find the number of shared teams between the realigned and incumbent divisions
+    a = alignment_matrix(league, df_new, df_old)
+
+    # find the remapping that preserves the largest number of teams from the incumbent
+    sol = solve_assignment(a, minimize=False, **kwargs)
+
+    # now remap
+    divs = list(league.all_divisions.keys())
+    a_map = [[*divs[i], *divs[j]] for (i, j) in sol]
+    dfm = pd.DataFrame(a_map, columns=['conf', 'division', 'new_conf', 'new_division'])
+    return dfm.merge(df_new).drop(['conf', 'division'], axis=1).rename({'new_conf':'conf', 'new_division':'division'}, axis=1)
+
+# -----
 
 class RealignmentModel:
     def __init__(self, league, df) -> None:
@@ -430,12 +486,8 @@ def realign(league, df, objective='distance', algorithm='optimal', **args):
     r = realign_result(assign, df, objective_columns(objective)) 
     solve_info['objective'] = get_objective(r, objective, objective_data)
     solver.log_result(r, solve_info)
+
+    if get_arg(args, 'relabel', False):
+        r = relabel_divisions(league, df, r, **args)
     return r, solve_info
 
-# todo simple heuristic to assign reasonable names to divisions for NFL.
-# Let Seattle be in the NFC WEST.
-# Then take the farthest west centroid division and call that AFC WEST.
-# Then let New York Giants be in the NFC EAST.
-# Then take the farthest east centroid division and call that AFC EAST.
-# Then take the two farthest north divisions. Call one NFC NORTH and the other AFC NORTH.
-# and do the same for south. 

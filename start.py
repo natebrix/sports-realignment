@@ -1,4 +1,5 @@
 exec(open('league.py').read())
+exec(open('solver.py').read())
 exec(open('gurobimodel.py').read())
 exec(open('scipmodel.py').read())
 exec(open('divisions.py').read())
