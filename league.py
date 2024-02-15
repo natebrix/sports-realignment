@@ -1,3 +1,4 @@
+from datetime import datetime
 import pandas as pd
 
 class League:
@@ -21,6 +22,14 @@ class League:
         df = pd.read_csv(filename)
         return League(df)
 
+def get_arg(args, key, default):
+    if key in args:
+        print(f'Using {key}={args[key]}')
+        return args[key]
+    else:
+        return default
+    
+
 def read_season_data(teams):
     df = pd.read_csv(teams)
     df['team'] = df.index
@@ -31,6 +40,16 @@ def read_ratings_data(ratings):
     df = pd.read_csv(ratings)
     return df
 
+def get_log_path():
+    return 'out'
+
+def get_log_filename(base):
+    suffix = datetime.now().strftime("%Y_%m_%d")
+    return f'{get_log_path()}/{base}_{suffix}.log'
+
+
+def log_table(logfile, result):
+    result.to_csv(logfile, index=False,  mode='a')
 
 def log_to_file(logfile, msg):
     with open(logfile, 'a') as f:

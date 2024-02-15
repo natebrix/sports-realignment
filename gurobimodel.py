@@ -32,6 +32,10 @@ class GurobiModel(gp.Model):
     def getVal(self, var):
         return var.X
     
+    @property
+    def name(self):
+      return self.varName
+    
     def createSol(self):
         s = self.NumStart
         self.NumStart += 1
