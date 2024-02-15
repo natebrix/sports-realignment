@@ -37,34 +37,38 @@ def order_by_division_paths(df, keys):
     ds = [division_path(g[1]) for g in df.groupby(by=keys)]
     return pd.concat(ds)
 
-def projection_for_league(league):
-    if league == 'nfl':
-        return dict(type = 'albers usa')
-    elif league == 'nba':
-        return dict(type = 'albers usa')
-    elif league == 'mlb':
-        return dict(type = 'albers usa')
-    elif league == 'nhl':
-        return {"type": "albers", "scale": 2.2}
+def update_layout_for_league(fig, league):
+    if league == 'nhl':
+        fig.update_geos(
+            center = { "lat": 39, "lon": -98 },
+            projection_type = 'albers',
+            lataxis_range=[25, 60],  
+            lonaxis_range=[-125, -66]
+        )
     else:
-        raise ValueError(f"Unknown league {league}")
+        fig.update_geos(
+            projection_type = 'albers usa'
+        )
+
+def get_league_labels(league_name, data, keys):
+    if (league_name == 'nfl') or (league_name == 'mlb'):
+        return data[keys[0]] + ' ' + data[keys[1:]].apply(lambda x: x.str.capitalize()).agg(' '.join, axis=1)
+    else:
+        return data[keys].apply(lambda x: x.str.capitalize()).agg(' '.join, axis=1)
 
 def plot_divisions(league_name, df, keys=['conf', 'division'], scope='north america', title=None):
     line_color = '#2b0c52'
     data = order_by_division_paths(df, keys)
-    data['label'] = data[keys].agg(' '.join, axis=1)
-    print(data['label'])
+    data['label'] = get_league_labels(league_name, data, keys)
+
     fig = px.line_geo(data, lon="team_lng", lat="team_lat", scope=scope, line_dash='label', 
                       color='label',
                       text = data['team_abbr'])
     fig.update_traces(line_color=line_color, line_width=5)
     fig.update_traces(textposition='top center')
-    proj = projection_for_league(league_name)
     fig.layout = go.Layout(
         geo = dict(
             scope = scope,
-            #center = { "lat": 44, "lon": -106.33844897531482 }, # nhl NOOO
-            projection = proj,
             showland = True,
             landcolor = 'rgb(250, 250, 250)',
             subunitcolor = 'rgb(177, 177, 177)',
@@ -79,6 +83,9 @@ def plot_divisions(league_name, df, keys=['conf', 'division'], scope='north amer
         ) if title else None
         #margin = dict(r = 0, l = 0, t = 100, b = 0)
     )
+
+    update_layout_for_league(fig, league_name)
+
     fig.update_layout(margin=dict(l=0, r=0, b=0, t=0),
                   width=1500, 
                   height=800, showlegend=True)
@@ -91,7 +98,7 @@ def plot_divisions(league_name, df, keys=['conf', 'division'], scope='north amer
     ))
 
     fig.show()
-    # fig.write_image("images/fig1.png")
+    # fig.write_image("doc/fig1.png")
     return fig
 
 def plot_teams(df, scope='north america', title=None):
@@ -132,6 +139,12 @@ def plot_teams(df, scope='north america', title=None):
     fig = go.Figure(data = [data], layout = layout)
     fig.show()    
     return fig
+
+def plot_stability(df):
+    plt.xlabel('# Realigned Teams')
+    plt.ylabel('Optimality Gap')
+    plt.plot(df['team_swap_count'], df['optimality_gap'], marker='o')
+    plt.show()
 
 def plot_max_swaps(df):
     fig, ax1 = plt.subplots()

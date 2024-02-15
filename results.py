@@ -1,17 +1,25 @@
 from datetime import datetime
 import timeit
 import pandas as pd
+import subprocess
 
 # mahalanobis - TV and distance
 # plot times by size
 
 #r_all = pd.read_csv('out/leagues_2024_02_05.log')
-# nfl_2023_distance_optimal.csv
+# r_nfl = pd.read_csv('nfl_2023_distance_optimal.csv')
+# r_nhl = pd.read_csv('nhl_2023_distance_optimal.csv')
 
 solvers = SolverRegistry([ScipModel, GurobiModel])
 scip = solvers.create_solver_environment('scip')
 
 all_algs = list(get_algorithms().keys())
+
+def get_path_incumbent(league_name, season):
+    return f'data/{league_name}-{season}.csv'
+
+def get_path_optimal(league_name, season):
+    return f'out/{league_name}_{season}_distance_optimal.csv'
 
 def write_by_conference(league, season):
     df = league.seasons[season]
@@ -60,7 +68,6 @@ def run_solvers(objectives, solvers=['gurobi', 'scip'], plot=False):
     log_table(get_log_filename('solvers'), df)
     return df
 
-# todo fix me. Debug these results. I am not sure they are right.
 def run_max_swaps(league_name='nfl-conf', season='2023-nfc', solver='gurobi'):
     results = []
     info = leagues[league_name]
@@ -74,7 +81,7 @@ def run_max_swaps(league_name='nfl-conf', season='2023-nfc', solver='gurobi'):
 
 # to compress: convert mlb_inc.png -compress lzw eps2:mlb_inc.eps
 
-def realign_to_latex(df, caption='Realignment'):
+def realignment_to_latex(df, caption='Realignment'):
     confs = df.groupby('conf')
     #divisions_in_conf = [len(conf.groupby('division')) for key, conf in confs]
     #print(divisions_in_conf)
@@ -114,3 +121,54 @@ def summary_to_latex(r_all, values, gaps, fmt='{:.2f}'):
     txt = summary.style.format(format).hide(level=0, axis=0).to_latex()
     print(txt)
 
+def optimal_to_latex(league_name, season):
+    df = pd.read_csv(get_path_optimal(league_name, season))
+    realignment_to_latex(df)
+
+def incumbent_to_latex(league_name, season):
+    df = pd.read_csv(get_path_incumbent(league_name, season))
+    realignment_to_latex(df)
+
+def plot_incumbent(league_name, season=2023):
+    df = leagues[league_name].seasons[season]
+    fig = plot_divisions(league_name, leagues[league_name].seasons[season])
+    fig.write_image(f'doc/{league_name}_{season}_inc.png')
+    subprocess.run(['convert', f'doc/{league_name}_{season}_inc.png', '-compress', 'lzw', f'doc/{league_name}_{season}_inc.eps'])
+
+def plot_optimal(league_name, season=2023):
+    df = pd.read_csv(get_path_optimal(league_name, season))
+    fig = plot_divisions(league_name, df)
+    fig.write_image(f'doc/{league_name}_{season}_opt.png')
+    subprocess.run(['convert', f'doc/{league_name}_{season}_opt.png', '-compress', 'lzw', f'doc/{league_name}_{season}_opt.eps'])
+
+def stable_test(league='nfl-conf', season='2023-afc', step=1000):
+    l = leagues[league]
+    df = l.seasons[season]
+    df_opt = pd.read_csv(get_path_optimal(league, season))
+    obj_opt = score_distance(df_opt, make_distances(df_opt))
+    lower = int(obj_opt / step) * step + step
+    upper = int(score_distance(df, make_distances(df)) / step) * step
+    rs = []
+
+    sol, info = realign(l.league, df, objective='stability', algorithm='naive')
+    print(info)
+    rs.append([league, season, info['objective'], info['time'], 0])
+
+    sol, info = realign(l.league, df, 
+                       objective='stability', algorithm='optimal', relabel=True, solver='scip', 
+                       linearize=True, d_max=obj_opt+1, verbose=True)
+    last = info['team_swap_count']
+    rs.append([league, season, info['objective'], info['time'], info['team_swap_count']])
+
+    last = df.shape[0]
+    for k in range(lower, upper + step, step):
+        sol, info = realign(l.league, df, 
+                       objective='stability', algorithm='optimal', relabel=True, solver='scip', 
+                       linearize=True, d_max=k, verbose=True)
+        if info['team_swap_count'] < last:
+            rs.append([league, season, info['objective'], info['time'], info['team_swap_count']])
+            last = info['team_swap_count']
+    r = pd.DataFrame(rs, columns=['league', 'season', 'objective', 'time', 'team_swap_count'])
+    c_obj = r['objective']
+    r['optimality_gap'] = (c_obj.max() - c_obj) / c_obj
+    return r.sort_values('optimality_gap')

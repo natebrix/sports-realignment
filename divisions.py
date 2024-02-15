@@ -40,17 +40,17 @@ def make_scores(df):
 def objective_columns(objective):
     if objective[0] == 'c':
         return ['rating']
-    elif objective[0] == 'd':
+    elif (objective[0] == 'd') or (objective[0] == 's'):
         return ['team_lat', 'team_lng']
     else:
         raise Exception(f'unknown objective {objective}')
 
-def score_division(div, distances):
+def score_distance_division(div, distances):
     return sum(div.merge(div, how='cross').apply(lambda r: distance_row(r, distances), axis=1).tolist())
 
 
-def score(df, distances):
-    return sum([score_division(div, distances) for (name, div) in df.groupby(['conf', 'division'])]) / 2
+def score_distance(df, distances):
+    return sum([score_distance_division(div, distances) for (name, div) in df.groupby(['conf', 'division'])]) / 2
 
 
 def score_competitiveness(df, rating='rating'):
@@ -156,8 +156,10 @@ class RealignmentModel:
 
     def print_vars(self, m, not_starting_with=[]):
         for v in m.getVars():
-            if v.varName[0] not in not_starting_with:
-                print(f'{v.varName} = {v.x}')
+            if v.name[0] not in not_starting_with:
+                val = m.getVal(v)
+                if abs(val) > 0.01:
+                    print(f'{v.name} = {val}')
 
     # return a dictionary. At minimum it should have the key 'data'
     # with the results of the realignment.
@@ -179,7 +181,7 @@ class NaiveModel(RealignmentModel):
         self.algorithm = 'naive'
 
     # return pre-existing alignment
-    def solve_core(self, df, objective, objective_data):
+    def solve_core(self, df, objective, objective_data, **args):
         return df[['team_abbr', 'conf', 'division']].values.tolist(), {}
 
 
@@ -320,19 +322,30 @@ class BinlinearModel(RealignmentModel):
         m.addConstrs(rm >= r[c, d] - r[c2, d2] for (c, d) in self.league.all_divisions for (c2, d2) in self.league.all_divisions)
         m.setObjective(rm, self.model.minimize)
 
-    # todo stability objective
-    def stability_objective(self, solve_info, teams, s, m, x):
+    # distance optimal
+    #      league     season objective algorithm  objective_value      time solver
+    #0  nhl-conf  2023-east  distance   optimal     36042.842933  1.735287   scip
+    #1  nhl-conf  2023-west  distance   optimal     69562.826265  1.452266   scip
+    # naive
+    # league     season  objective algorithm  objective_value      time solver
+    # 0  nhl-conf  2023-east  stability     naive     42595.263557  0.000625   scip
+    # 1  nhl-conf  2023-west  stability     naive     69959.424189  0.000173   scip
+    def stability_objective(self, solve_info, teams, s, m, x, z, df_0, distances, d_min):
+        if not solve_info['linearize']:
+            raise Exception(f'stability objective requires linearization. Use linearize=True when solving.')
+        
         # we want to minimize the number of teams that change divisions
-        # we want an indicator variable for each team that is 1 if the team changes divisions
-        u = {t: m.addBinaryVar(name=f"u_{t}") for t in teams}
-        # df.loc[i, 'conf'], df.loc[i, 'division']]
-        # todo df?!?!
-        m.addConstr(m.quicksum(x[t, df.loc[i, 'conf'], df.loc[i, 'division']] for i, t in enumerate(teams)) >= fixed_teams) 
+        v = m.addContinuousVar(name="v")
+        incumbent = [(r['team_abbr'], r['conf'], r['division']) for i, r in df_0.iterrows()]
+        m.addConstr(v == len(teams) + m.quicksum(-x[i, c, d] for (i, c, d) in incumbent)) 
+        m.setObjective(v, self.model.minimize)
 
+        sum_div = self.get_sum_division(solve_info, teams, m, x, z, distances)
+        m.addConstr(sum_div <= d_min)
+        return v
 
-    def distance_objective(self, solve_info, teams, distances, m, x, y, **args):
+    def get_linearization_variables(self, solve_info, teams, m, x, **args):
         linearize = get_arg(args, 'linearize', False)
-        dummy = get_arg(args, 'dummy', False)
         solve_info['linearize'] = linearize
         if linearize:
             # z_t1t2cd == 1 if teams t1 and t2 are in conference c and division d.
@@ -342,15 +355,21 @@ class BinlinearModel(RealignmentModel):
                     for t2 in teams:
                         m.addConstr(z[t1, t2, c, d] <= x[t1, c, d])
                         m.addConstr(z[t1, t2, c, d] >= x[t1, c, d] + x[t2, c, d] - 1)
+            return z
+        return None
 
-        if linearize:
-            sum_division = self.model.quicksum(distances[ai, aj] * z[ai, aj, c, d] for i, ai in enumerate(teams) for j, aj in enumerate(teams) for (c, d) in self.league.all_divisions)
+    def get_sum_division(self, solve_info, teams, m, x, z, distances):
+        if solve_info['linearize']:
+            sum_div = self.model.quicksum(distances[ai, aj] * z[ai, aj, c, d] for i, ai in enumerate(teams) for j, aj in enumerate(teams) for (c, d) in self.league.all_divisions)
         else:
-            sum_division = self.model.quicksum(distances[ai, aj] * x[ai, c, d] * x[aj, c, d] for i, ai in enumerate(teams) for j, aj in enumerate(teams) for (c, d) in self.league.all_divisions)
-        sum_same_conf = self.model.quicksum(distances[ai, aj] * y[ai, c] * y[aj, c] for i, ai in enumerate(teams) for j, aj in enumerate(teams) for c in self.league.confs)
-        sum_diff_conf = self.model.quicksum((distances[ai, aj] * y[ai, c] * (1 - y[aj, c])) + (distances[ai, aj] * (1 - y[ai, c]) * y[aj, c]) for i, ai in enumerate(teams) for j, aj in enumerate(teams) for c in self.league.confs)
+            sum_div = self.model.quicksum(distances[ai, aj] * x[ai, c, d] * x[aj, c, d] for i, ai in enumerate(teams) for j, aj in enumerate(teams) for (c, d) in self.league.all_divisions)
+        return 0.5 * sum_div
+    
+
+    def distance_objective(self, solve_info, teams, distances, m, x, y, z, **args):
+        dummy = get_arg(args, 'dummy', False)
+        obj = self.get_sum_division(solve_info, teams, m, x, z, distances)
         
-        obj = 0.5 * sum_division
         if dummy:
             dummy_obj = m.addContinuousVar("cost")
             m.setObjective(dummy_obj, self.model.minimize)
@@ -384,6 +403,7 @@ class BinlinearModel(RealignmentModel):
     def create_model_bilinear(self, df, objective, objective_data, **args):
         self.log(f'solver = {self.model.__name__}\n')
         solve_info = {}
+        report_vars = {}
 
         linearize = get_arg(args, 'linearize', False)
         max_swaps = get_arg(args, 'max_swaps', None)
@@ -409,19 +429,21 @@ class BinlinearModel(RealignmentModel):
         m.setNonconvex(not linearize)
         m.setLogFile(self.logfile) 
 
-        # I could introduce a variable w_tu which is 1 iff t and u are in the same division.
-        # then x_tcd + x_ucd - 1 <= w_tu for all t, u, c, d
-
         # x_tcd == 1 if team t is in conference c and division d.
         x = {(t, c, d): m.addBinaryVar(name=f"x_{t}_{c}_{d}") for (c, d) in self.league.all_divisions for t in teams}
 
         # y_tc == 1 if team t is in conference c. That is, some x_tcd == 1.
         y = {(t, c): m.addBinaryVar(name=f"x_{t}_{c}") for c in self.league.confs for t in teams}
 
+        z = self.get_linearization_variables(solve_info, teams, m, x, **args)
+
         if objective[0] == 'd':
-            self.distance_objective(solve_info, teams, objective_data, m, x, y, **self.args)
+            self.distance_objective(solve_info, teams, objective_data, m, x, y, z, **self.args)
         elif objective[0] == 'c':
             self.competitiveness_objective(solve_info, teams, objective_data, m, x)
+        elif objective[0] == 's':
+            d_max = get_arg(args, 'd_max', None)
+            report_vars['team_swap_count'] = self.stability_objective(solve_info, teams, objective_data, m, x, z, df, objective_data, d_max)
         else:
             raise Exception(f'unknown objective {objective}')
 
@@ -438,25 +460,28 @@ class BinlinearModel(RealignmentModel):
         if args.get('mps_file'):
             m.write(args['mps_file'])
 
-        return m, x, solve_info
+        return m, x, solve_info, report_vars
 
     def solve_core(self, df, objective, objective_data, **args):
-        m, x, solve_info = self.create_model_bilinear(df, objective, objective_data, **args)
+        m, x, solve_info, report_vars = self.create_model_bilinear(df, objective, objective_data, **args)
         m.optimize()
         solve_info['solve_time'] = m.getSolvingTime()
         if not m.is_optimal():
             raise Exception(f'solver did not find optimal solution')    
         assign = self.get_assignment(df, m, x)
         if get_arg(args, 'verbose', False):
-            self.print_vars(m, ['x', 'y'])
+            self.print_vars(m, ['x', 'y', 'z'])
+        for v in report_vars:
+            solve_info[v] = m.getVal(report_vars[v])
+
         return assign, solve_info
 
 
 def get_objective(r, objective, objective_data):
     if objective[0] == 'c':
         return score_competitiveness(r)
-    elif objective[0] == 'd':
-        return score(r, objective_data)
+    elif (objective[0] == 'd' or objective[0] == 's'):
+        return score_distance(r, objective_data)
     else:
         raise Exception(f'unknown objective {objective}')
 
@@ -469,7 +494,7 @@ def get_algorithms():
     return { "naive" : NaiveModel, "greedy" : GreedyModel, "optimal" : BinlinearModel}
 
 def realign(league, df, objective='distance', algorithm='optimal', **args): 
-    if objective[0] == 'd':
+    if (objective[0] == 'd' or objective[0] == 's'):
         objective_data = make_distances(df)
     elif objective[0] == 'c':
         objective_data = make_scores(df)
