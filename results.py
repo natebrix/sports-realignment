@@ -1,15 +1,10 @@
+# Routines for reproducing paper results.
+
 from datetime import datetime
 import timeit
 import numpy as np
 import pandas as pd
 import subprocess
-
-# mahalanobis - TV and distance
-# plot times by size
-
-#r_all = pd.read_csv('out/leagues_2024_02_05.log')
-# r_nfl = pd.read_csv('nfl_2023_distance_optimal.csv')
-# r_nhl = pd.read_csv('nhl_2023_distance_optimal.csv')
 
 solvers = SolverRegistry([ScipModel, GurobiModel])
 scip = solvers.create_solver_environment('scip')
@@ -190,7 +185,10 @@ def make_artificial_league(conf_count, div_count, total_team_count):
     teams = pd.DataFrame(team_data, columns=['team_abbr', 'conf', 'division', 'team_lat', 'team_lng'])
     return League(league), teams
 
-def read_it(filename):
+# Generate a problem instance from the test data provided by
+# An Exact Approach for the Balanced k-Way Partitioning Problem with Weight Constraints and its Application to
+# Sports Team Realignment. Diego Recalde, Daniel Sever´ın, Ramiro Torres, Polo Vaca
+def read_recsev_instance(filename):
     with open(filename, 'r') as file:
         content = file.read()
     lines = content.split('\n')
