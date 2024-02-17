@@ -1,5 +1,19 @@
 import pyscipopt as scip
 
+class ScipConshdlr(scip.Conshdlr):
+    def __init__(self, callback):
+        super().__init__()
+        self.callback = callback
+
+    def conslock(self, constraint, locktype, nlockspos, nlocksneg):
+         pass
+    
+    # Method to check constraints
+    def conscheck(self, constraints, solution, check_integrality,
+                  check_lp_rows, print_reason, completely):
+        violated = self.callback(self)   
+        return {'result': scip.SCIP_RESULT.INFEASIBLE if violated else scip.SCIP_RESULT.FEASIBLE}
+    
 # wrapper for scip model to enable solver-agnostic code.
 # pysciopt's API is pretty much a clone of Gurobi's.
 class ScipModel(scip.Model):   
@@ -78,4 +92,8 @@ class ScipModel(scip.Model):
     def is_optimal(self):
         return self.getStatus() == "optimal"
 
+    def registerConstraintCallback(self, callback):
+        conshdlr = ScipConshdlr(callback)
+        self.includeConshdlr(conshdlr, "ScipConshdlr", "Custom constraint handler", enfopriority = 0,
+                             needscons=False)
 

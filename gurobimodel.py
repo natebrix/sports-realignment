@@ -10,6 +10,7 @@ class GurobiModel(gp.Model):
         super().__init__(*args, **kwargs)  
         self.params.NonConvex = 0
         self.NumStart = 0
+        self.constraint_callback = None
 
     def isNonconvex(self):
         return self.params.NonConvex == 2
@@ -58,3 +59,17 @@ class GurobiModel(gp.Model):
     
     def is_optimal(self):
         return self.status == GRB.OPTIMAL
+    
+    def optimize(self):
+        if self.constraint_callback:
+            super().optimize(self.constraint_callback)
+        else:
+            super().optimize()
+
+    def registerConstraintCallback(self, callback):
+        def c(m, where):
+            if where == gp.mip_callback:
+                return callback(self)
+            return False
+        self.constraint_callback = c 
+

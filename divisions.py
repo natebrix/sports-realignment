@@ -320,6 +320,12 @@ class BinlinearModel(RealignmentModel):
                 m.addConstr(self.model.quicksum(x[t, c, d] for d in self.league.divisions(c)) == y[t, c])
 
 
+    def lazy_constraints(self, solve_info, teams, m, x, y, z):
+        def callback(m):
+            # todo add cuts
+            return False # no violations
+        m.registerConstraintCallback(callback)
+
     def competitiveness_objective(self, solve_info, teams, s, m, x):
         # if we are trying to maximize competitiveness then what we want is to minimize the maximum 
         # gap in strengths between divisions.
@@ -358,6 +364,7 @@ class BinlinearModel(RealignmentModel):
         if linearize:
             # z_t1t2cd == 1 if teams t1 and t2 are in conference c and division d.
             z = {(t1, t2, c, d): m.addBinaryVar(name=f"z_{t1}_{t2}_{c}_{d}") for (c, d) in self.league.all_divisions for t1 in teams for t2 in teams}
+            #z = {(t1, t2, c, d): m.addContinuousVar(name=f"z_{t1}_{t2}_{c}_{d}", lb=0, ub=1) for (c, d) in self.league.all_divisions for t1 in teams for t2 in teams}
             for (c, d) in self.league.all_divisions:
                 for t1 in teams:
                     for t2 in teams:
@@ -421,7 +428,6 @@ class BinlinearModel(RealignmentModel):
 
         linearize = get_arg(args, 'linearize', False)
         max_swaps = get_arg(args, 'max_swaps', None)
-        warm = get_arg(args, 'warm', False)
 
         # todo: do some kind of check to make sure df is compatible with league
         teams = [row['team_abbr'] for i, row in df.iterrows()] 
@@ -445,9 +451,11 @@ class BinlinearModel(RealignmentModel):
 
         # x_tcd == 1 if team t is in conference c and division d.
         x = {(t, c, d): m.addBinaryVar(name=f"x_{t}_{c}_{d}") for (c, d) in self.league.all_divisions for t in teams}
+        #x = {(t, c, d): m.addContinuousVar(name=f"x_{t}_{c}_{d}", lb=0, ub=1) for (c, d) in self.league.all_divisions for t in teams}
 
         # y_tc == 1 if team t is in conference c. That is, some x_tcd == 1.
         y = {(t, c): m.addBinaryVar(name=f"x_{t}_{c}") for c in self.league.confs for t in teams}
+        #y = {(t, c): m.addContinuousVar(name=f"x_{t}_{c}", lb=0, ub=1) for c in self.league.confs for t in teams}
 
         z = self.get_linearization_variables(solve_info, teams, m, x, **args)
 
@@ -468,9 +476,15 @@ class BinlinearModel(RealignmentModel):
         self.fix_conference_constraints(solve_info, m, y)
         self.forbid_team_constraints(solve_info, m, x)
 
-        solve_info['warm'] = warm
-        if warm:
+        solve_info['warm'] = get_arg(args, 'warm', False)
+        if solve_info['warm']:
             self.bilinear_start(solve_info, df, m, x, y, z)
+
+        solve_info['lazy'] = get_arg(args, 'lazy', False)
+        if solve_info['lazy']:
+            # I need to change x,y,z to continous variables.
+            # the callback inside of here needs to add relevant cuts
+            self.lazy_constraints(solve_info, df, m, x, y, z)
 
         if args.get('mps_file'):
             m.write(args['mps_file'])
@@ -500,6 +514,7 @@ def get_objective(r, objective, objective_data):
     else:
         raise Exception(f'unknown objective {objective}')
 
+
 def realign_result(a, df, keep):
     r = pd.DataFrame(a, columns=['team_abbr', 'conf', 'division'])
     return pd.merge(r, df[['team_abbr'] + keep], on='team_abbr')
@@ -508,8 +523,7 @@ def realign_result(a, df, keep):
 def get_algorithms():
     return { "naive" : NaiveModel, "greedy" : GreedyModel, "optimal" : BinlinearModel}
 
-# todo add objective = 'm' and use passed in matrix? But still need labels.
-# and pass division sizes. Which is in league right now. So that's fine.
+
 def realign(league, df, objective='distance', algorithm='optimal', **args): 
     if (objective[0] == 'd' or objective[0] == 's'):
         objective_data = make_distances(df, **args)
