@@ -28,13 +28,21 @@ def distance_row(r, distances):
 
 
 # returns a dictionary of distances between all pairs of teams
-def make_distances(df):
-    ll = ['team_abbr', 'team_lat', 'team_lng']
-    return {(t[0], t[1]) : t[2] for t in df[ll].merge(df[ll], how='cross').apply(lambda r: haversine_row(r), axis=1).tolist()}
+def make_distances(df, **args):
+    distances = get_arg(args, 'distances', None)
+    if distances is not None:
+        return distances
+    else:
+        ll = ['team_abbr', 'team_lat', 'team_lng']
+        return {(t[0], t[1]) : t[2] for t in df[ll].merge(df[ll], how='cross').apply(lambda r: haversine_row(r), axis=1).tolist()}
 
 # returns a dictionary of scores for each team
-def make_scores(df):
-    return df.set_index('team_abbr')['rating'].to_dict()
+def make_scores(df, **args):
+    scores = get_arg(args, 'scores', None)
+    if scores is not None:
+        return scores
+    else:
+        return df.set_index('team_abbr')['rating'].to_dict()
 
 # returns a list of columns to use for the objective
 def objective_columns(objective):
@@ -366,18 +374,17 @@ class BinlinearModel(RealignmentModel):
         return 0.5 * sum_div
     
 
-    def distance_objective(self, solve_info, teams, distances, m, x, y, z, **args):
-        dummy = get_arg(args, 'dummy', False)
+    def distance_objective(self, solve_info, teams, distances, m, x, y, z, dummy_cost):
         obj = self.get_sum_division(solve_info, teams, m, x, z, distances)
         
-        if dummy:
+        if dummy_cost:
             dummy_obj = m.addContinuousVar("cost")
             m.setObjective(dummy_obj, self.model.minimize)
             m.addConstr(dummy_obj == obj)
         else:
             m.setObjective(obj, self.model.minimize)
 
-    def bilinear_start(self, solve_info, df, m, x, y):
+    def bilinear_start(self, solve_info, df, m, x, y, z):
         solution = m.createSol()
         m.update() 
 
@@ -387,11 +394,18 @@ class BinlinearModel(RealignmentModel):
         for y_tc in y.values():
             m.setSolVal(solution, y_tc, 0) 
 
+        if z is not None:
+            for z_t1t2cd in z.values():
+                m.setSolVal(solution, z_t1t2cd, 0)
+
         for (c, d), div in df.groupby(['conf', 'division']):
             for i, row in div.iterrows():
                 t = row['team_abbr']
                 m.setSolVal(solution, x[t, c, d], 1) 
                 m.setSolVal(solution, y[t, c], 1) 
+                if z is not None:
+                    for t2 in df['team_abbr']:
+                        m.setSolVal(solution, z[t, t2, c, d], 1)
         
         # Certain solvers cannot handle nonconvex objectives directly. In such a case, the solver wrapper
         # internally adds a dummy variable to the model and sets the objective to minimize this variable.
@@ -438,7 +452,8 @@ class BinlinearModel(RealignmentModel):
         z = self.get_linearization_variables(solve_info, teams, m, x, **args)
 
         if objective[0] == 'd':
-            self.distance_objective(solve_info, teams, objective_data, m, x, y, z, **self.args)
+            dummy_cost = get_arg(args, 'dummy', False)
+            self.distance_objective(solve_info, teams, objective_data, m, x, y, z, dummy_cost)
         elif objective[0] == 'c':
             self.competitiveness_objective(solve_info, teams, objective_data, m, x)
         elif objective[0] == 's':
@@ -454,8 +469,8 @@ class BinlinearModel(RealignmentModel):
         self.forbid_team_constraints(solve_info, m, x)
 
         solve_info['warm'] = warm
-        if warm and not linearize:
-            self.bilinear_start(solve_info, df, m, x, y)
+        if warm:
+            self.bilinear_start(solve_info, df, m, x, y, z)
 
         if args.get('mps_file'):
             m.write(args['mps_file'])
@@ -493,11 +508,13 @@ def realign_result(a, df, keep):
 def get_algorithms():
     return { "naive" : NaiveModel, "greedy" : GreedyModel, "optimal" : BinlinearModel}
 
+# todo add objective = 'm' and use passed in matrix? But still need labels.
+# and pass division sizes. Which is in league right now. So that's fine.
 def realign(league, df, objective='distance', algorithm='optimal', **args): 
     if (objective[0] == 'd' or objective[0] == 's'):
-        objective_data = make_distances(df)
+        objective_data = make_distances(df, **args)
     elif objective[0] == 'c':
-        objective_data = make_scores(df)
+        objective_data = make_scores(df, **args)
     else:
         raise Exception(f'unknown objective {objective}')
 

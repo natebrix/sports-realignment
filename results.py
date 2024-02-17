@@ -1,5 +1,6 @@
 from datetime import datetime
 import timeit
+import numpy as np
 import pandas as pd
 import subprocess
 
@@ -172,3 +173,37 @@ def stable_test(league='nfl-conf', season='2023-afc', step=1000):
     c_obj = r['objective']
     r['optimality_gap'] = (c_obj.max() - c_obj) / c_obj
     return r.sort_values('optimality_gap')
+
+# make an artificial league with conf_count conferences, div_count divisions, and total_team_count teams.
+# Note that the number of teams in each division is not guaranteed to be the same.
+def make_artificial_league(conf_count, div_count, total_team_count):
+    confs = [f'c{i}' for i in range(conf_count)]
+    divs = [f'd{i}' for i in range(div_count)]
+    tc = {(c, d): total_team_count // (conf_count * div_count) for c in confs for d in divs}
+    team_count = total_team_count // (conf_count * div_count)
+    # allocate any remaining slots
+    for i in range(total_team_count % (conf_count * div_count)):
+        tc[confs[i // div_count], divs[i % div_count]] += 1
+    league_data = [(c, d, tc[c, d]) for c in confs for d in divs]
+    league = pd.DataFrame(league_data, columns=['conf', 'division', 'team_count'])
+    team_data = [(f't{i}', f'c{i % conf_count}', f'd{i % div_count}', 0, 0) for i in range(total_team_count)]
+    teams = pd.DataFrame(team_data, columns=['team_abbr', 'conf', 'division', 'team_lat', 'team_lng'])
+    return League(league), teams
+
+def read_it(filename):
+    with open(filename, 'r') as file:
+        content = file.read()
+    lines = content.split('\n')
+
+    # Extract the size of the matrix and the number of clusters
+    size = int(lines[0])
+    num_divisions = int(lines[1])  
+    print(num_divisions)
+
+    # Extract the distance matrix
+    data = np.array([list(map(float, row.split())) for row in lines[2:]][:size])
+    # the first column are weights. the rest are distances
+    league, df = make_artificial_league(1, num_divisions, size)
+    teams = [t['team_abbr'] for i, t in df.iterrows()]
+    distances = {(t, u): data[i, j+1] for i, t in enumerate(teams) for j, u in enumerate(teams)}
+    return league, df, distances, data[:, 0]
