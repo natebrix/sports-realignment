@@ -20,7 +20,10 @@ class GurobiModel(gp.Model):
 
     def addBinaryVar(self, name):
         return self.addVar(vtype=gp.GRB.BINARY, name=name) 
-    
+
+    def addIntegerVar(self, name, lb=-gp.GRB.INFINITY, ub=gp.GRB.INFINITY):
+        return self.addVar(vtype=gp.GRB.INTEGER, name=name, lb=lb, ub=ub)
+
     def addContinuousVar(self, name, lb=-gp.GRB.INFINITY, ub=gp.GRB.INFINITY):
         return self.addVar(vtype=gp.GRB.CONTINUOUS, name=name, lb=lb, ub=ub)
 
@@ -58,7 +61,7 @@ class GurobiModel(gp.Model):
         return self.getAttr(gp.GRB.Attr.Runtime)   
     
     def is_optimal(self):
-        return self.status == GRB.OPTIMAL
+        return self.status == gp.GRB.OPTIMAL
     
     def optimize(self):
         if self.constraint_callback:

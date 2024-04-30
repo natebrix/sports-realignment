@@ -11,14 +11,17 @@ class ScipConshdlr(scip.Conshdlr):
     # Method to check constraints
     def conscheck(self, constraints, solution, check_integrality,
                   check_lp_rows, print_reason, completely):
-        violated = self.callback(self)   
+        violated = self.callback(self) # todo the model??  
         return {'result': scip.SCIP_RESULT.INFEASIBLE if violated else scip.SCIP_RESULT.FEASIBLE}
     
 # wrapper for scip model to enable solver-agnostic code.
 # pysciopt's API is pretty much a clone of Gurobi's.
 class ScipModel(scip.Model):   
     solver_name = 'scip'
-    
+    quicksum = scip.quicksum
+    minimize = "minimize"
+    maximize = "maximize"
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)  
         self.nonconvex = False
@@ -29,6 +32,9 @@ class ScipModel(scip.Model):
 
     def addBinaryVar(self, name):
         return self.addVar(vtype="B", name=name) 
+    
+    def addIntegerVar(self, name, lb=float('-inf'), ub=float('inf')):
+        return self.addVar(vtype="I", name=name, lb=lb, ub=ub)
 
     def addContinuousVar(self, name, lb=float('-inf'), ub=float('inf')):
         return self.addVar(vtype="C", name=name, lb=lb, ub=ub) 
@@ -36,10 +42,6 @@ class ScipModel(scip.Model):
     def setLogFile(self, filename):
         #self.setParam(gp.GRB.Param.LogFile, filename)
         pass # todo
-
-    quicksum = scip.quicksum
-    minimize = "minimize"
-    maximize = "maximize"
 
     def setNonconvex(self, value):
         self.nonconvex = value
@@ -76,10 +78,10 @@ class ScipModel(scip.Model):
     def update(self):
         pass
 
-    def warm(self, s, v):
+    def warm(self, s, v): # todo rename me
         return self.getSolVal(s, v) > 0.99
 
-    def both_warm(self, s, vs):
+    def both_warm(self, s, vs):  # todo rename me
         return False if len(vs) != 2 else self.warm(s, vs[0]) and self.warm(s, vs[1])
 
     def setNonconvexSolVal(self, s):

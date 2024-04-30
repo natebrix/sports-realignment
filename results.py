@@ -7,7 +7,6 @@ import pandas as pd
 import subprocess
 
 solvers = SolverRegistry([ScipModel, GurobiModel])
-scip = solvers.create_solver_environment('scip')
 
 all_algs = list(get_algorithms().keys())
 

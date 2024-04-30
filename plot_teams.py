@@ -56,7 +56,7 @@ def get_league_labels(league_name, data, keys):
     else:
         return data[keys].apply(lambda x: x.str.capitalize()).agg(' '.join, axis=1)
 
-def plot_divisions(league_name, df, keys=['conf', 'division'], scope='north america', title=None):
+def plot_league(league_name, df, keys=['conf', 'division'], scope='north america', title=None):
     line_color = '#2b0c52'
     data = order_by_division_paths(df, keys)
     data['label'] = get_league_labels(league_name, data, keys)
@@ -86,9 +86,10 @@ def plot_divisions(league_name, df, keys=['conf', 'division'], scope='north amer
 
     update_layout_for_league(fig, league_name)
 
-    fig.update_layout(margin=dict(l=0, r=0, b=0, t=0),
-                  width=1500, 
-                  height=800, showlegend=True)
+    fig.update_layout(
+        font = dict(size = 24), # todo may not work
+        margin=dict(l=0, r=0, b=0, t=0),
+        width=1500, height=800, showlegend=True)
     fig.update_layout(legend=dict(
         font = dict(size = 24, color = line_color),
         xanchor="left",
@@ -98,7 +99,6 @@ def plot_divisions(league_name, df, keys=['conf', 'division'], scope='north amer
     ))
 
     fig.show()
-    # fig.write_image("doc/fig1.png")
     return fig
 
 def plot_teams(df, scope='north america', title=None):
