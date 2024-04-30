@@ -1,8 +1,11 @@
+import datetime
 from math import radians, cos, sin, asin, sqrt
 import pandas as pd
 import numpy as np
-import timeit
 import time
+from solver import solvers, get_log_filename, log_to_file
+from gurobimodel import GurobiModel
+from scipmodel import ScipModel
 
 # stackoverflow
 # Computes the haversine distance between two points.
@@ -103,7 +106,7 @@ def solve_assignment(d, minimize=True, **kwargs):
         m.addConstr(env.quicksum(x[i, j] for i in range(n)) == 1)
     m.optimize()
     if not m.is_optimal():
-        raise Exception(f'Optimization failed. Not optimal.')
+        raise Exception('Optimization failed. Not optimal.')
     a = get_vars_above_threshold(m, x, 0.99)
     if len(a) != n: 
         raise Exception(f'Expected {n} assignments, got {len(a)}')
@@ -224,7 +227,7 @@ class GreedyModel(RealignmentModel):
     # Find a greedy solution in "depth first" order.  That is, fill divisions sequentially.
     def solve_core(self, df, objective, objective_data, **args):
         if objective[0] != 'd':
-            raise Exception(f'greedy only works with distance objective')
+            raise Exception('greedy only works with distance objective')
         # todo: how to do this with competitiveness?
         # --> the greedy choice should be added to the division with the smallest total score
         v = self.get_team_heap(objective_data)
@@ -320,9 +323,8 @@ class BinlinearModel(RealignmentModel):
                 m.addConstr(self.model.quicksum(x[t, c, d] for d in self.league.divisions(c)) == y[t, c])
 
 
-    def lazy_constraints(self, solve_info, teams, m, x, y, z):
+    def lazy_constraints(self, solve_info, teams, m, x, y, z, d):
         def callback(m):
-            # todo add cuts
             return False # no violations
         m.registerConstraintCallback(callback)
 
@@ -346,7 +348,7 @@ class BinlinearModel(RealignmentModel):
     # 1  nhl-conf  2023-west  stability     naive     69959.424189  0.000173   scip
     def stability_objective(self, solve_info, teams, s, m, x, z, df_0, distances, d_min):
         if not solve_info['linearize']:
-            raise Exception(f'stability objective requires linearization. Use linearize=True when solving.')
+            raise Exception('stability objective requires linearization. Use linearize=True when solving.')
         
         # we want to minimize the number of teams that change divisions
         v = m.addContinuousVar(name="v")
@@ -496,7 +498,7 @@ class BinlinearModel(RealignmentModel):
         m.optimize()
         solve_info['solve_time'] = m.getSolvingTime()
         if not m.is_optimal():
-            raise Exception(f'solver did not find optimal solution')    
+            raise Exception('solver did not find optimal solution')    
         assign = self.get_assignment(df, m, x)
         if get_arg(args, 'verbose', False):
             self.print_vars(m, ['x', 'y', 'z'])
