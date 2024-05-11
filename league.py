@@ -14,7 +14,7 @@ class League:
         return self.all_divisions[c, d]['team_count']
 
     def total_team_count(self):
-        return sum([d['team_count'] for d in leagues['nfl'].league.all_divisions.values()])
+        return sum([d['team_count'] for d in self.all_divisions.values()])
 
 
     @staticmethod
