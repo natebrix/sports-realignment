@@ -41,7 +41,7 @@ def read_ratings_data(ratings):
     return df
 
 def get_log_path():
-    return 'out'
+    return 'log'
 
 def get_log_filename(base):
     suffix = datetime.now().strftime("%Y_%m_%d")
