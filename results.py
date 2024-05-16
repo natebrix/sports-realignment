@@ -38,6 +38,8 @@ def write_by_conference(league, season):
         df_c.to_csv(f'data/{filename}', index=False)
 
 def run_league(info, objectives, algorithms, plot=False, log_all=False, **kwargs):
+    # run algorithms for a specified league.
+    # e.g. run_league(leagues['nfl-conf'], ['distance'], ['greedy'])
     results = []
     for season_id in info.seasons:
         for objective in objectives:
