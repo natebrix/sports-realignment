@@ -16,6 +16,18 @@ def get_path_incumbent(league_name, season):
 def get_path_optimal(league_name, season):
     return f'out/{league_name}_{season}_distance_optimal.csv'
 
+def read_realignment(file):
+    df = pd.read_csv(file)
+    df['team_lat'] = df['team_lat'].astype(float)
+    df['team_lng'] = df['team_lng'].astype(float)
+    return df
+
+def read_incumbent(league_name, season):
+    return read_realignment(get_path_incumbent(league_name, season))
+
+def read_optimal(league_name, season):
+    return read_realignment(get_path_optimal(league_name, season))                     
+
 def write_by_conference(league, season):
     df = league.seasons[season]
     g = df.groupby('conf')
@@ -117,11 +129,11 @@ def summary_to_latex(r_all, values, gaps, fmt='{:.2f}'):
     print(txt)
 
 def optimal_to_latex(league_name, season):
-    df = pd.read_csv(get_path_optimal(league_name, season))
+    df = read_optimal(league_name, season)
     realignment_to_latex(df)
 
 def incumbent_to_latex(league_name, season):
-    df = pd.read_csv(get_path_incumbent(league_name, season))
+    df = read_incumbent(league_name, season)
     realignment_to_latex(df)
 
 def plot_incumbent(league_name, season=2023):
@@ -131,15 +143,19 @@ def plot_incumbent(league_name, season=2023):
     subprocess.run(['convert', f'doc/{league_name}_{season}_inc.png', '-compress', 'lzw', f'doc/{league_name}_{season}_inc.eps'])
 
 def plot_optimal(league_name, season=2023):
-    df = pd.read_csv(get_path_optimal(league_name, season))
+    df = read_optimal(league_name, season)
     fig = plot_divisions(league_name, df)
     fig.write_image(f'doc/{league_name}_{season}_opt.png')
     subprocess.run(['convert', f'doc/{league_name}_{season}_opt.png', '-compress', 'lzw', f'doc/{league_name}_{season}_opt.eps'])
 
+# We find the optimal and incument realignments.
+# Then we step from the objective value from one to the other, in increments defined by step.
+# We report the number of swaps that occur at each iteration.
+# This should be plotted with the objective value on the x-axis and the number of swaps on the y-axis.
 def stable_test(league='nfl-conf', season='2023-afc', step=1000):
     l = leagues[league]
     df = l.seasons[season]
-    df_opt = pd.read_csv(get_path_optimal(league, season))
+    df_opt = read_optimal(league, season)
     obj_opt = score_distance(df_opt, make_distances(df_opt))
     lower = int(obj_opt / step) * step + step
     upper = int(score_distance(df, make_distances(df)) / step) * step
@@ -149,9 +165,10 @@ def stable_test(league='nfl-conf', season='2023-afc', step=1000):
     print(info)
     rs.append([league, season, info['objective'], info['time'], 0])
 
+    k = obj_opt + 1
     sol, info = realign(l.league, df, 
                        objective='stability', algorithm='optimal', relabel=True, solver='scip', 
-                       linearize=True, d_max=obj_opt+1, verbose=True)
+                       linearize=True, d_max=k, verbose=True, mps_file=f'out/stability_{int(k)}.mps')
     last = info['team_swap_count']
     rs.append([league, season, info['objective'], info['time'], info['team_swap_count']])
 
@@ -159,14 +176,16 @@ def stable_test(league='nfl-conf', season='2023-afc', step=1000):
     for k in range(lower, upper + step, step):
         sol, info = realign(l.league, df, 
                        objective='stability', algorithm='optimal', relabel=True, solver='scip', 
-                       linearize=True, d_max=k, verbose=True)
+                       linearize=True, d_max=k, verbose=True,  mps_file=f'out/stability_{k}.mps')
         if info['team_swap_count'] < last:
             rs.append([league, season, info['objective'], info['time'], info['team_swap_count']])
             last = info['team_swap_count']
     r = pd.DataFrame(rs, columns=['league', 'season', 'objective', 'time', 'team_swap_count'])
     c_obj = r['objective']
-    r['optimality_gap'] = (c_obj.max() - c_obj) / c_obj
-    return r.sort_values('optimality_gap')
+    r['optimality_gap'] = (c_obj - c_obj.min()) / c_obj.min()
+    df = r.sort_values('optimality_gap')
+    log_table(get_log_filename('stability'), df)
+    return df
 
 # make an artificial league with conf_count conferences, div_count divisions, and total_team_count teams.
 # Note that the number of teams in each division is not guaranteed to be the same.

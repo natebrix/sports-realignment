@@ -3,23 +3,25 @@ from math import radians, cos, sin, asin, sqrt
 import pandas as pd
 import numpy as np
 import time
-from solver import solvers, get_log_filename, log_to_file
+#from solver import SolverRegistery
 from gurobimodel import GurobiModel
 from scipmodel import ScipModel
 
-# stackoverflow
-# Computes the haversine distance between two points.
 def haversine(lat1, lon1, lat2, lon2):
-      #R = 3959.87433 # this is in miles.  For Earth radius in kilometers use 6372.8 km
-      R = 6372.8  # km
-      dLat = radians(lat2 - lat1)
-      dLon = radians(lon2 - lon1)
-      lat1 = radians(lat1)
-      lat2 = radians(lat2)
+    """
+    Computes the haversine distance between two points.
+    :return: haversine distance.
+    """ 
+    #R = 3959.87433 # this is in miles.  For Earth radius in kilometers use 6372.8 km
+    R = 6372.8  # km
+    dLat = radians(lat2 - lat1)
+    dLon = radians(lon2 - lon1)
+    lat1 = radians(lat1)
+    lat2 = radians(lat2)
 
-      a = sin(dLat/2)**2 + cos(lat1) * cos(lat2) * sin(dLon/2)**2
-      c = 2 * asin(sqrt(a))
-      return R * c
+    a = sin(dLat/2)**2 + cos(lat1) * cos(lat2) * sin(dLon/2)**2
+    c = 2 * asin(sqrt(a))
+    return R * c
 
 
 def haversine_row(r):
@@ -87,9 +89,11 @@ def alignment_matrix(league, r, s):
 def get_vars_above_threshold(m, x, threshold):
     return [k for k in x if m.getVal(x[k]) > threshold]
 
-# solve an assignment problem with the given row and column ids, with distance matrix d.
-# the number of assignments for each row and column is given by row_count and col_count.
 def solve_assignment(d, minimize=True, **kwargs):
+    """
+    solve an assignment problem with the given row and column ids, with distance matrix d.
+    :return: the indexes of the optimal assignment.
+    """ 
     n = d.shape[0]
     env = solvers.create_solver_environment(get_arg(kwargs, 'solver', None))
     m = env()
@@ -131,6 +135,9 @@ def relabel_divisions(league, df_old, df_new, **kwargs):
 # -----
 
 class RealignmentModel:
+    """
+    Base class for a realignment model.
+    """ 
     def __init__(self, league, df) -> None:
         self.league = league
         self.logfile = get_log_filename('realign')
@@ -187,6 +194,9 @@ class RealignmentModel:
 
 
 class NaiveModel(RealignmentModel):
+    """
+    Use the incumbent divisions as the realignment.
+    """ 
     def __init__(self, league, df, **args) -> None:
         super().__init__(league, df)
         self.algorithm = 'naive'
@@ -197,17 +207,20 @@ class NaiveModel(RealignmentModel):
 
 
 class GreedyModel(RealignmentModel):
+    """
+    Use a greedy algorithm to find a realignment.
+    """ 
     def __init__(self, league, df, **args) -> None:
         super().__init__(league, df)
         self.algorithm = 'greedy'
 
     # v: entries
-    # k: number of teams in division
+    # team_count: number of teams in division
     def greedy_dfs_step(self, v, team_count):
-        # how to honor constraints...
-        # here we can fill in any fixed ones.
-        # we can also remove any that are forbidden.
-        # max swaps seems hard
+        # todo not honoring constraints. Strategy:
+        #   - here we can fill in any fixed ones.
+        #   - we can also remove any that are forbidden.
+        #   - max swaps seems hard!
         f = v.pop(0)
         t = set(f[0])
         while len(t) < team_count:
@@ -252,6 +265,9 @@ def get_model_class(solver):
 
 
 class BinlinearModel(RealignmentModel):
+    """
+    Solve a bilinear model to find a realignment.
+    """ 
     def __init__(self, league, df, **args) -> None:
         super().__init__(league, df)
         solver = get_arg(args, 'solver', 'gurobi')
@@ -338,14 +354,6 @@ class BinlinearModel(RealignmentModel):
         m.addConstrs(rm >= r[c, d] - r[c2, d2] for (c, d) in self.league.all_divisions for (c2, d2) in self.league.all_divisions)
         m.setObjective(rm, self.model.minimize)
 
-    # distance optimal
-    #      league     season objective algorithm  objective_value      time solver
-    #0  nhl-conf  2023-east  distance   optimal     36042.842933  1.735287   scip
-    #1  nhl-conf  2023-west  distance   optimal     69562.826265  1.452266   scip
-    # naive
-    # league     season  objective algorithm  objective_value      time solver
-    # 0  nhl-conf  2023-east  stability     naive     42595.263557  0.000625   scip
-    # 1  nhl-conf  2023-west  stability     naive     69959.424189  0.000173   scip
     def stability_objective(self, solve_info, teams, s, m, x, z, df_0, distances, d_min):
         if not solve_info['linearize']:
             raise Exception('stability objective requires linearization. Use linearize=True when solving.')
@@ -447,6 +455,7 @@ class BinlinearModel(RealignmentModel):
         #m.setParam("separating/maxrounds", 1)
         #m.setParam("separating/maxroundsroot", 5)
         #m.setParam("presolving/maxrestarts", 2)
+        #m.setParam("limits/time", 10) # 10 seconds
 
         m.setNonconvex(not linearize)
         m.setLogFile(self.logfile) 
