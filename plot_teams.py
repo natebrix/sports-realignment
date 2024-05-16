@@ -8,19 +8,6 @@ import os
 import urllib.request
 
 
-# results rendering
-#   show the divisions nicely with helmets
-#   show the map with paths
-
-# todo - gen these on first run
-# https://github.com/tbryan2/NFL-Python-Team-Logo-Viz/blob/main/Team-Logo-Visualizations.ipynb
-def save_logos(logos):
-    if not os.path.exists("logos"):
-        os.makedirs("logos")
-    logo_paths = []
-    for team in range(len(logos)):
-        urllib.request.urlretrieve(logos['team_logo_espn'][team], f"logos/{logos['team_abbr'][team]}.tif")
-        logo_paths.append(f"logos/{logos['team_abbr'][team]}.tif")
 
 # given a dataframe containing lat and long, return an augmented dataset that forms a path between the rows
 # that does not cross itself.
@@ -56,7 +43,7 @@ def get_league_labels(league_name, data, keys):
     else:
         return data[keys].apply(lambda x: x.str.capitalize()).agg(' '.join, axis=1)
 
-def plot_league(league_name, df, keys=['conf', 'division'], scope='north america', title=None):
+def plot_league(league_name, df, keys=['conf', 'division'], scope='north america', title=None, text=None):
     line_color = '#2b0c52'
     data = order_by_division_paths(df, keys)
     data['label'] = get_league_labels(league_name, data, keys)
@@ -83,7 +70,16 @@ def plot_league(league_name, df, keys=['conf', 'division'], scope='north america
         ) if title else None
         #margin = dict(r = 0, l = 0, t = 100, b = 0)
     )
-
+    if text:
+        fig.add_trace(
+            go.Scattergeo(
+                lon = [-78],
+                lat = [50],
+                text = [f'<span style="font-size: 36px;">{text}</span>'],
+                mode = 'text',
+                textposition='bottom right', name=''
+                )
+        )
     update_layout_for_league(fig, league_name)
 
     fig.update_layout(
@@ -140,22 +136,36 @@ def plot_teams(df, scope='north america', title=None):
     fig.show()    
     return fig
 
+# comes from stable_test().
+# data in out/stability.csv.
 def plot_stability(df):
-    plt.xlabel('# Realigned Teams')
+    # todo get rid of the redundant rows
+    df['rel_gap'] = (df['objective'] - df['objective'].min()) / (df['objective'].max() - df['objective'].min())
+    df['opt_gap'] = (df['objective'] - df['objective'].min()) / df['objective'].min()
     plt.ylabel('Optimality Gap')
-    plt.plot(df['team_swap_count'], df['optimality_gap'], marker='o')
+    plt.xlabel('# Realigned Teams')
+    #plt.plot(df['opt_gap'], df['swaps'] , marker='o')
+    plt.plot(df['swaps'], df['opt_gap'] , marker='o')
+    plt.xticks(df['swaps'])
+    ymax = round(df['opt_gap'].max(), 1) + 0.1
+    yt = np.arange(0, ymax, 0.1)
+    plt.yticks(yt, labels=[f'{x:.0%}' for x in yt])
+    # todo format percentages as percentages
+    #plt.xticklabels(df['swaps'])
+
     plt.show()
 
+# from data/max_swaps.csv
 def plot_max_swaps(df):
     fig, ax1 = plt.subplots()
 
     ax2 = ax1.twinx()
-    ax1.plot(df['swaps'], df['gap'], 'g-', marker='o')  # Added marker for clarity
+    ax1.plot(df['swaps'], df['gap'], 'g--', marker='x')  # Added marker for clarity
     ax2.plot(df['swaps'], df['t'], 'b-', marker='o')  # Added marker for clarity
 
-    ax1.set_xlabel('Swaps')
+    ax1.set_xlabel('Realigned Teams')
     ax1.set_ylabel('Gap', color='g')
-    ax2.set_ylabel('Time', color='b')
+    ax2.set_ylabel('Time (ms)', color='b')
 
     # Set the x-ticks explicitly to match the 'swaps' values
     ax1.set_xticks(df['swaps'][::5])
@@ -163,3 +173,14 @@ def plot_max_swaps(df):
     ax1.yaxis.set_major_formatter(PercentFormatter(1))
     plt.tight_layout()
     plt.show()
+
+
+# todo - gen these on first run
+# https://github.com/tbryan2/NFL-Python-Team-Logo-Viz/blob/main/Team-Logo-Visualizations.ipynb
+def save_logos(logos):
+    if not os.path.exists("logos"):
+        os.makedirs("logos")
+    logo_paths = []
+    for team in range(len(logos)):
+        urllib.request.urlretrieve(logos['team_logo_espn'][team], f"logos/{logos['team_abbr'][team]}.tif")
+        logo_paths.append(f"logos/{logos['team_abbr'][team]}.tif")
